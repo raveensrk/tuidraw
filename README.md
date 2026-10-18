@@ -7,7 +7,7 @@ where they meet. Saves `.tuidraw` (JSON), exports `.txt`.
 ## Install
 
 ```bash
-go install ./cmd/tuidraw
+./install.sh
 ```
 
 Run `tuidraw --help`. In the editor press `?` for every key.
