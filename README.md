@@ -4,17 +4,7 @@ An infinite-canvas editor for designing terminal UIs, and itself a terminal
 app. Think Figma or Freeform, but every cell is one terminal character, so
 what you draw is exactly what a TUI can show.
 
-```
-┌─ Login ──────────────────┐
-│                          │
-│  User   ╭──────────────╮ │
-│         ╰──────────────╯ │
-│  Pass   ╭──────────────╮ │
-│         ╰──────────────╯ │
-│                          │
-│          [ Sign in ]  ───┼──▶ home
-└──────────────────────────┘
-```
+![tuidraw editing a music player mockup](doc/screenshot.png)
 
 ## Features
 

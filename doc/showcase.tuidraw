@@ -1,0 +1,494 @@
+{
+  "version": 1,
+  "shapes": [
+    {
+      "kind": "rect",
+      "box": {
+        "min": {
+          "x": 0,
+          "y": 0
+        },
+        "max": {
+          "x": 58,
+          "y": 21
+        }
+      },
+      "style": "rounded",
+      "fg": "cyan"
+    },
+    {
+      "kind": "line",
+      "points": [
+        {
+          "x": 18,
+          "y": 0
+        },
+        {
+          "x": 18,
+          "y": 21
+        }
+      ],
+      "style": "light",
+      "fg": "cyan"
+    },
+    {
+      "kind": "line",
+      "points": [
+        {
+          "x": 18,
+          "y": 17
+        },
+        {
+          "x": 58,
+          "y": 17
+        }
+      ],
+      "style": "light",
+      "fg": "cyan"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 2,
+          "y": 0
+        }
+      ],
+      "text": " Music ",
+      "fg": "bright_cyan"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 2,
+          "y": 2
+        }
+      ],
+      "text": "Library",
+      "fg": "bright_black"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 2,
+          "y": 4
+        }
+      ],
+      "text": "▸ Playlists",
+      "fg": "yellow"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 2,
+          "y": 5
+        }
+      ],
+      "text": "  Albums"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 2,
+          "y": 6
+        }
+      ],
+      "text": "  Artists"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 2,
+          "y": 7
+        }
+      ],
+      "text": "  Radio"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 21,
+          "y": 2
+        }
+      ],
+      "text": "Now playing",
+      "fg": "magenta"
+    },
+    {
+      "kind": "ellipse",
+      "box": {
+        "min": {
+          "x": 21,
+          "y": 4
+        },
+        "max": {
+          "x": 31,
+          "y": 9
+        }
+      },
+      "style": "light",
+      "fg": "bright_blue",
+      "bg": "blue",
+      "fill": true
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 25,
+          "y": 6
+        }
+      ],
+      "text": "♫ ♪",
+      "fg": "bright_white",
+      "bg": "blue"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 35,
+          "y": 5
+        }
+      ],
+      "text": "Blue in Green",
+      "fg": "bright_white"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 35,
+          "y": 6
+        }
+      ],
+      "text": "Miles Davis",
+      "fg": "bright_black"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 35,
+          "y": 7
+        }
+      ],
+      "text": "Kind of Blue · 1959",
+      "fg": "bright_black"
+    },
+    {
+      "kind": "stroke",
+      "points": [
+        {
+          "x": 21,
+          "y": 11
+        },
+        {
+          "x": 22,
+          "y": 11
+        },
+        {
+          "x": 23,
+          "y": 11
+        },
+        {
+          "x": 24,
+          "y": 11
+        },
+        {
+          "x": 25,
+          "y": 11
+        },
+        {
+          "x": 26,
+          "y": 11
+        },
+        {
+          "x": 27,
+          "y": 11
+        },
+        {
+          "x": 28,
+          "y": 11
+        },
+        {
+          "x": 29,
+          "y": 11
+        },
+        {
+          "x": 30,
+          "y": 11
+        },
+        {
+          "x": 31,
+          "y": 11
+        },
+        {
+          "x": 32,
+          "y": 11
+        },
+        {
+          "x": 33,
+          "y": 11
+        },
+        {
+          "x": 34,
+          "y": 11
+        },
+        {
+          "x": 35,
+          "y": 11
+        },
+        {
+          "x": 36,
+          "y": 11
+        },
+        {
+          "x": 37,
+          "y": 11
+        },
+        {
+          "x": 38,
+          "y": 11
+        },
+        {
+          "x": 39,
+          "y": 11
+        },
+        {
+          "x": 40,
+          "y": 11
+        }
+      ],
+      "char": "━",
+      "fg": "green"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 41,
+          "y": 11
+        }
+      ],
+      "text": "──────────────",
+      "fg": "bright_black"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 21,
+          "y": 12
+        }
+      ],
+      "text": "2:13",
+      "fg": "bright_black"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 51,
+          "y": 12
+        }
+      ],
+      "text": "5:37",
+      "fg": "bright_black"
+    },
+    {
+      "kind": "rect",
+      "box": {
+        "min": {
+          "x": 24,
+          "y": 13
+        },
+        "max": {
+          "x": 30,
+          "y": 15
+        }
+      },
+      "style": "light",
+      "fg": "white"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 26,
+          "y": 14
+        }
+      ],
+      "text": "◀◀"
+    },
+    {
+      "kind": "rect",
+      "box": {
+        "min": {
+          "x": 33,
+          "y": 13
+        },
+        "max": {
+          "x": 39,
+          "y": 15
+        }
+      },
+      "style": "heavy",
+      "fg": "green",
+      "bg": "green",
+      "fill": true
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 36,
+          "y": 14
+        }
+      ],
+      "text": "▶",
+      "fg": "black",
+      "bg": "green"
+    },
+    {
+      "kind": "rect",
+      "box": {
+        "min": {
+          "x": 42,
+          "y": 13
+        },
+        "max": {
+          "x": 48,
+          "y": 15
+        }
+      },
+      "style": "light",
+      "fg": "white"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 44,
+          "y": 14
+        }
+      ],
+      "text": "▶▶"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 20,
+          "y": 19
+        }
+      ],
+      "text": "space play   n next   q quit",
+      "fg": "bright_black"
+    },
+    {
+      "kind": "polygon",
+      "points": [
+        {
+          "x": 71,
+          "y": 1
+        },
+        {
+          "x": 79,
+          "y": 4
+        },
+        {
+          "x": 71,
+          "y": 7
+        },
+        {
+          "x": 63,
+          "y": 4
+        }
+      ],
+      "closed": true,
+      "style": "light",
+      "fg": "yellow"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 68,
+          "y": 4
+        }
+      ],
+      "text": "idea?",
+      "fg": "yellow"
+    },
+    {
+      "kind": "line",
+      "points": [
+        {
+          "x": 71,
+          "y": 8
+        },
+        {
+          "x": 59,
+          "y": 11
+        }
+      ],
+      "style": "light",
+      "fg": "yellow",
+      "arrow": true,
+      "flip": true
+    },
+    {
+      "kind": "polygon",
+      "points": [
+        {
+          "x": 70,
+          "y": 12
+        },
+        {
+          "x": 77,
+          "y": 17
+        },
+        {
+          "x": 63,
+          "y": 17
+        }
+      ],
+      "closed": true,
+      "style": "light",
+      "fg": "magenta"
+    },
+    {
+      "kind": "ellipse",
+      "box": {
+        "min": {
+          "x": 60,
+          "y": 18
+        },
+        "max": {
+          "x": 82,
+          "y": 22
+        }
+      },
+      "style": "light",
+      "fg": "bright_cyan"
+    },
+    {
+      "kind": "text",
+      "points": [
+        {
+          "x": 64,
+          "y": 20
+        }
+      ],
+      "text": "made in tuidraw",
+      "fg": "bright_cyan"
+    }
+  ]
+}
