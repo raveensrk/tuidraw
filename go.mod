@@ -1,4 +1,4 @@
-module tuidraw
+module github.com/raveensrk/tuidraw
 
 go 1.27.2
 

@@ -21,7 +21,7 @@ import (
 	"math"
 	"strings"
 
-	"tuidraw/internal/doc"
+	"github.com/raveensrk/tuidraw/internal/doc"
 )
 
 // Edge bits of a cell's mask.

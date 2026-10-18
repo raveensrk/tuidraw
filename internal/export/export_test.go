@@ -3,7 +3,7 @@ package export
 import (
 	"testing"
 
-	"tuidraw/internal/doc"
+	"github.com/raveensrk/tuidraw/internal/doc"
 )
 
 func TestText(t *testing.T) {

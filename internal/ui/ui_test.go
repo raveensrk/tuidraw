@@ -8,8 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"tuidraw/internal/doc"
-	"tuidraw/internal/export"
+	"github.com/raveensrk/tuidraw/internal/doc"
+	"github.com/raveensrk/tuidraw/internal/export"
 )
 
 func setup(t *testing.T) *Model {

@@ -7,7 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"tuidraw/internal/ui"
+	"github.com/raveensrk/tuidraw/internal/ui"
 )
 
 const short = `usage: tuidraw [file.tuidraw]

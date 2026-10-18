@@ -11,8 +11,8 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"tuidraw/internal/doc"
-	"tuidraw/internal/render"
+	"github.com/raveensrk/tuidraw/internal/doc"
+	"github.com/raveensrk/tuidraw/internal/render"
 )
 
 // Dark theme colors.

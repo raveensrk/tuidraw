@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"tuidraw/internal/doc"
+	"github.com/raveensrk/tuidraw/internal/doc"
 )
 
 func pt(x, y int) doc.Point { return doc.Point{X: x, Y: y} }

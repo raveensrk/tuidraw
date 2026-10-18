@@ -3,7 +3,7 @@
 // out of sync the way inverse operations can.
 package history
 
-import "tuidraw/internal/doc"
+import "github.com/raveensrk/tuidraw/internal/doc"
 
 // Limit is how many undo steps are kept.
 const Limit = 200

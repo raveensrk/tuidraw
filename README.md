@@ -39,6 +39,12 @@ what you draw is exactly what a TUI can show.
 ## Install
 
 ```bash
+go install github.com/raveensrk/tuidraw/cmd/tuidraw@latest
+```
+
+Or from a clone, which runs the tests first:
+
+```bash
 ./install.sh
 ```
 
@@ -73,3 +79,7 @@ timeout 120 go test ./...
 
 [AGENTS.md](AGENTS.md) describes the package layout. Planned work lives in
 [task/](task/).
+
+## License
+
+[MIT](LICENSE)

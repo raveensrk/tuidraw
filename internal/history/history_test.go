@@ -3,7 +3,7 @@ package history
 import (
 	"testing"
 
-	"tuidraw/internal/doc"
+	"github.com/raveensrk/tuidraw/internal/doc"
 )
 
 func shapes(n int) []doc.Shape {

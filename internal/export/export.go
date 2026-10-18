@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"tuidraw/internal/doc"
-	"tuidraw/internal/render"
+	"github.com/raveensrk/tuidraw/internal/doc"
+	"github.com/raveensrk/tuidraw/internal/render"
 )
 
 // bounds is the box covering every shape.

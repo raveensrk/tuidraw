@@ -7,8 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"tuidraw/internal/doc"
-	"tuidraw/internal/render"
+	"github.com/raveensrk/tuidraw/internal/doc"
+	"github.com/raveensrk/tuidraw/internal/render"
 )
 
 // mouse routes mouse events: toolbar clicks, wheel and right or middle drag
