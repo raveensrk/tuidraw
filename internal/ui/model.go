@@ -31,6 +31,11 @@ type Tool int
 const (
 	Select Tool = iota
 	RectTool
+	OvalTool
+	CircleTool
+	TriTool
+	DiamondTool
+	PolyTool
 	LineTool
 	TextTool
 	Brush
@@ -44,6 +49,11 @@ var tools = []struct {
 }{
 	{Select, "v", "select"},
 	{RectTool, "r", "rect"},
+	{OvalTool, "o", "oval"},
+	{CircleTool, "O", "circle"},
+	{TriTool, "y", "tri"},
+	{DiamondTool, "d", "diamond"},
+	{PolyTool, "p", "poly"},
 	{LineTool, "l", "line"},
 	{TextTool, "t", "text"},
 	{Brush, "b", "brush"},
@@ -82,6 +92,9 @@ type drag struct {
 	pushed  bool      // history recorded for this drag
 	preview doc.Shape // shape being drawn
 	decided bool      // line: leg order chosen from first move
+
+	// make builds the shape of a box tool from start and pointer.
+	make func(a, b doc.Point) doc.Shape
 }
 
 // edit is an in-progress text edit. index is -1 for a new text shape.
@@ -117,6 +130,7 @@ type Model struct {
 
 	drag      *drag
 	edit      *edit
+	poly      *doc.Shape // polygon being placed; last point follows the pointer
 	prompt    *prompt
 	help      *pager
 	clip      []doc.Shape
@@ -283,6 +297,10 @@ func (m *Model) key(k tea.KeyPressMsg) tea.Cmd {
 	case "?":
 		m.help = newPager(helpText, m.w, m.h)
 	case "esc":
+		if m.poly != nil {
+			m.commitPoly(false)
+			return nil
+		}
 		if m.drag != nil {
 			m.cancelDrag()
 			return nil
@@ -372,6 +390,7 @@ func (m *Model) key(k tea.KeyPressMsg) tea.Cmd {
 
 func (m *Model) setTool(t Tool) {
 	m.commitEdit()
+	m.commitPoly(false)
 	m.drag = nil
 	m.tool = t
 	m.status = tools[t].label
@@ -381,6 +400,7 @@ func (m *Model) moveCursor(dx, dy int) {
 	m.cursor.X += dx
 	m.cursor.Y += dy
 	m.follow()
+	m.track(m.cursor)
 	if m.drag != nil {
 		m.move(m.cursor)
 	}

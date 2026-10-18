@@ -14,6 +14,7 @@
 package render
 
 import (
+	"math"
 	"strings"
 
 	"tuidraw/internal/doc"
@@ -160,6 +161,10 @@ func (g *Grid) shape(s doc.Shape, z int) int {
 	switch s.Kind {
 	case doc.Rect:
 		g.rect(s, z)
+	case doc.Ellipse:
+		g.ellipse(s, z)
+	case doc.Polygon:
+		g.polygon(s, z)
 	case doc.Line:
 		g.line(s, z)
 	case doc.Text:
@@ -268,6 +273,261 @@ func (g *Grid) text(s doc.Shape, z int) {
 			g.solid(doc.Point{X: p.X + dx, Y: p.Y + dy}, r, z)
 		}
 	}
+}
+
+// Cells are about twice as tall as wide. Slopes are judged as seen, so a
+// circle needs a box about twice as wide as it is tall.
+const aspect = 2.0
+
+// Slope bands, in degrees as seen on screen: flatter than flat draws a
+// horizontal rune, steeper than steep a vertical one, between them a
+// diagonal.
+const (
+	flat  = 22.5
+	steep = 67.5
+)
+
+// slope picks the outline rune for a direction of travel (dx, dy) in cells.
+//
+//	─  flatter than 22.5°    ╲  down-right or up-left
+//	│  steeper than 67.5°    ╱  up-right or down-left
+func slope(dx, dy float64, st doc.Style) rune {
+	t := table(st)
+	deg := math.Atan2(math.Abs(dy*aspect), math.Abs(dx)) * 180 / math.Pi
+	switch {
+	case deg < flat:
+		return t[E|W]
+	case deg > steep:
+		return t[N|S]
+	case st == doc.ASCII && (dx > 0) == (dy > 0):
+		return '\\'
+	case st == doc.ASCII:
+		return '/'
+	case (dx > 0) == (dy > 0):
+		return '╲'
+	}
+	return '╱'
+}
+
+// ellipse outlines the ellipse that fits the box as a closed stair-step
+// path of edge masks, so it takes the border style and joins other shapes:
+//
+//	  ╭─────╮
+//	╭─╯     ╰─╮
+//	│         │
+//	╰─╮     ╭─╯
+//	  ╰─────╯
+//
+// It walks the curve in small angle steps, keeps each new cell, and splits
+// diagonal steps through the neighbour nearer the curve.
+func (g *Grid) ellipse(s doc.Shape, z int) {
+	path := EllipsePath(s.Box)
+	n := len(path)
+	if n < 2 {
+		for _, p := range path {
+			g.edge(p, E|W, s.Style, z)
+		}
+		return
+	}
+	for i := range n {
+		a, b := path[i], path[(i+1)%n]
+		if a == b {
+			continue
+		}
+		d := dir(a, b)
+		g.edge(a, d, s.Style, z)
+		g.edge(b, opposite(d), s.Style, z)
+	}
+}
+
+// EllipsePath returns the closed, 4-connected cell loop of the ellipse that
+// fits box.
+func EllipsePath(box doc.Box) []doc.Point {
+	cx := float64(box.Min.X+box.Max.X) / 2
+	cy := float64(box.Min.Y+box.Max.Y) / 2
+	a := float64(box.Max.X-box.Min.X) / 2
+	r := float64(box.Max.Y-box.Min.Y) / 2
+
+	// reach is how far out a cell sits, in normalized units: 1 on the curve.
+	reach := func(p doc.Point) float64 {
+		nx := (float64(p.X) - cx) / math.Max(a, 0.5)
+		ny := (float64(p.Y) - cy) / math.Max(r, 0.5)
+		return nx*nx + ny*ny
+	}
+	// outer picks the corner cell further out, so stairs turn outward.
+	outer := func(c1, c2 doc.Point) doc.Point {
+		if reach(c2) > reach(c1) {
+			return c2
+		}
+		return c1
+	}
+
+	steps := int(8*(a+r)) + 8
+	var out []doc.Point
+	add := func(p doc.Point) {
+		if len(out) == 0 {
+			out = append(out, p)
+			return
+		}
+		last := out[len(out)-1]
+		if p == last {
+			return
+		}
+		if p.X != last.X && p.Y != last.Y {
+			// Diagonal step: go through the outer corner cell.
+			out = append(out, outer(doc.Point{X: p.X, Y: last.Y}, doc.Point{X: last.X, Y: p.Y}))
+		}
+		out = append(out, p)
+	}
+
+	for i := range steps {
+		t := 2 * math.Pi * float64(i) / float64(steps)
+		add(doc.Point{
+			X: int(math.Round(cx + a*math.Cos(t))),
+			Y: int(math.Round(cy + r*math.Sin(t))),
+		})
+	}
+
+	// Close the loop: drop a repeated start, then bridge back to it.
+	for len(out) > 1 && out[len(out)-1] == out[0] {
+		out = out[:len(out)-1]
+	}
+	if n := len(out); n > 1 {
+		last, first := out[n-1], out[0]
+		if last.X != first.X && last.Y != first.Y {
+			out = append(out, outer(doc.Point{X: first.X, Y: last.Y}, doc.Point{X: last.X, Y: first.Y}))
+		}
+	}
+	return unspike(out)
+}
+
+// unspike removes out-and-back steps (a, b, a) from a closed loop; they
+// would draw a stub sticking out of the outline.
+func unspike(loop []doc.Point) []doc.Point {
+	for changed := true; changed && len(loop) > 2; {
+		changed = false
+		n := len(loop)
+		for i := range n {
+			if loop[(i+n-1)%n] == loop[(i+1)%n] {
+				// Drop the tip and one copy of the base.
+				lo, hi := i, (i+1)%n
+				if hi < lo {
+					lo, hi = hi, lo
+				}
+				loop = append(loop[:hi], loop[hi+1:]...)
+				loop = append(loop[:lo], loop[lo+1:]...)
+				changed = true
+				break
+			}
+		}
+	}
+	return loop
+}
+
+// polygon joins its vertices in order, and the last to the first when
+// closed. Straight sides use edge masks so they join boxes; slanted sides
+// are solid diagonal runes.
+func (g *Grid) polygon(s doc.Shape, z int) {
+	n := len(s.Points)
+	sides := n - 1
+	if s.Closed && n >= 3 {
+		sides = n
+	}
+
+	for i := range sides {
+		a, b := s.Points[i], s.Points[(i+1)%n]
+		if a == b {
+			continue
+		}
+		if a.X == b.X || a.Y == b.Y {
+			path := Path(doc.Shape{Points: []doc.Point{a, b}})
+			for j := 0; j < len(path)-1; j++ {
+				d := dir(path[j], path[j+1])
+				g.edge(path[j], d, s.Style, z)
+				g.edge(path[j+1], opposite(d), s.Style, z)
+			}
+			continue
+		}
+		r := slope(float64(b.X-a.X), float64(b.Y-a.Y), s.Style)
+		for _, p := range Bresenham(a, b) {
+			g.solid(p, r, z)
+		}
+	}
+
+	// Shape vertices where two slanted sides meet, so points look pointed:
+	//
+	//	 ╱╲   top       ╲╱   bottom       <  left     >  right
+	for i := range n {
+		if !s.Closed && (i == 0 || i == n-1) {
+			continue
+		}
+		v := s.Points[i]
+		u1 := s.Points[(i+n-1)%n]
+		u2 := s.Points[(i+1)%n]
+		g.vertex(v, u1, u2, s.Style, z)
+	}
+}
+
+// vertex draws the point where sides v-u1 and v-u2 meet, when both slant.
+func (g *Grid) vertex(v, u1, u2 doc.Point, st doc.Style, z int) {
+	ax, ay := sign(u1.X-v.X), sign(u1.Y-v.Y)
+	bx, by := sign(u2.X-v.X), sign(u2.Y-v.Y)
+	if ax == 0 || ay == 0 || bx == 0 || by == 0 {
+		return
+	}
+
+	up, down := '╱', '╲'
+	if st == doc.ASCII {
+		up, down = '/', '\\'
+	}
+	right := doc.Point{X: v.X + 1, Y: v.Y}
+	switch {
+	case ay > 0 && by > 0 && ax != bx: // both sides go down: top point
+		g.solid(v, up, z)
+		g.solid(right, down, z)
+	case ay < 0 && by < 0 && ax != bx: // both go up: bottom point
+		g.solid(v, down, z)
+		g.solid(right, up, z)
+	case ax > 0 && bx > 0 && ay != by: // both go right: left point
+		g.solid(v, '<', z)
+	case ax < 0 && bx < 0 && ay != by: // both go left: right point
+		g.solid(v, '>', z)
+	}
+}
+
+// Bresenham returns the cells on a straight line from a to b, both included.
+func Bresenham(a, b doc.Point) []doc.Point {
+	dx, dy := abs(b.X-a.X), -abs(b.Y-a.Y)
+	sx, sy := 1, 1
+	if a.X > b.X {
+		sx = -1
+	}
+	if a.Y > b.Y {
+		sy = -1
+	}
+
+	out := []doc.Point{a}
+	e := dx + dy
+	for a != b {
+		e2 := 2 * e
+		if e2 >= dy {
+			e += dy
+			a.X += sx
+		}
+		if e2 <= dx {
+			e += dx
+			a.Y += sy
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }
 
 // dir is the edge bit pointing from a to its neighbour b.

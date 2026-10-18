@@ -1,7 +1,7 @@
 # tuidraw
 
 Infinite-canvas editor for designing terminal UIs, itself a terminal app.
-Boxes, lines, text and brush strokes on a character grid; borders join up
+Boxes, ovals, circles, polygons, lines, text and brush strokes on a character grid; borders join up
 where they meet. Saves `.tuidraw` (JSON), exports `.txt`.
 
 ## Install

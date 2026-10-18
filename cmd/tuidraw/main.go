@@ -12,8 +12,9 @@ import (
 
 const short = `usage: tuidraw [file.tuidraw]
 
-Design terminal UIs on an infinite character canvas: boxes, lines, text,
-brush strokes. Opens file, or a new drawing when it does not exist.
+Design terminal UIs on an infinite character canvas: boxes, ovals,
+circles, polygons, lines, text, brush strokes. Opens file, or a new
+drawing when it does not exist.
 
 options:
   -h, --help   short help

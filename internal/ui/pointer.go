@@ -45,6 +45,7 @@ func (m *Model) mouse(msg tea.MouseMsg) {
 			return
 		}
 		m.cursor = p
+		m.track(p)
 		if m.drag != nil {
 			m.move(p)
 		}
@@ -91,9 +92,11 @@ func (m *Model) down(p doc.Point, toggle bool) {
 	switch m.tool {
 	case Select:
 		m.selectDown(p, toggle, double)
-	case RectTool:
-		m.drag = &drag{kind: dragDraw, start: p, last: p,
-			preview: doc.Shape{Kind: doc.Rect, Box: doc.Span(p, p), Style: m.style}}
+	case RectTool, OvalTool, CircleTool, TriTool, DiamondTool:
+		mk := m.maker()
+		m.drag = &drag{kind: dragDraw, start: p, last: p, make: mk, preview: mk(p, p)}
+	case PolyTool:
+		m.polyDown(p, double)
 	case LineTool:
 		m.drag = &drag{kind: dragDraw, start: p, last: p,
 			preview: doc.Shape{Kind: doc.Line, Points: []doc.Point{p, p}, Style: m.style, Arrow: m.arrow}}
@@ -174,9 +177,11 @@ func (m *Model) move(p doc.Point) {
 
 func (m *Model) drawMove(d *drag, p doc.Point) {
 	s := &d.preview
+	if d.make != nil {
+		*s = d.make(d.start, p)
+		return
+	}
 	switch s.Kind {
-	case doc.Rect:
-		s.Box = doc.Span(d.start, p)
 	case doc.Line:
 		// The first move decides the elbow: start along the way you moved.
 		if !d.decided {
@@ -187,7 +192,7 @@ func (m *Model) drawMove(d *drag, p doc.Point) {
 		s.Points[1] = p
 	case doc.Stroke:
 		prev := s.Points[len(s.Points)-1]
-		for _, q := range bresenham(prev, p)[1:] {
+		for _, q := range render.Bresenham(prev, p)[1:] {
 			s.Points = append(s.Points, q)
 		}
 	}
@@ -216,14 +221,15 @@ func (m *Model) up(p doc.Point) {
 		}
 	case dragDraw:
 		s := d.preview
-		switch {
-		case s.Kind == doc.Rect && d.start == p:
-			// A plain click makes a default-size box.
-			s.Box = doc.Box{Min: p, Max: doc.Point{X: p.X + clickRectW - 1, Y: p.Y + clickRectH - 1}}
-		case s.Kind == doc.Rect && (s.Box.Min.X == s.Box.Max.X || s.Box.Min.Y == s.Box.Max.Y):
-			m.status = "rect needs at least 2x2 cells"
+		if d.make != nil && d.start == p {
+			// A plain click makes a default-size shape.
+			s = d.make(p, doc.Point{X: p.X + clickRectW - 1, Y: p.Y + clickRectH - 1})
+		}
+		if b := s.Bounds(); d.make != nil && (b.Min.X == b.Max.X || b.Min.Y == b.Max.Y) {
+			m.status = "shape needs at least 2x2 cells"
 			return
-		case s.Kind == doc.Line && d.start == p:
+		}
+		if s.Kind == doc.Line && d.start == p {
 			return
 		}
 		m.push()
@@ -262,6 +268,15 @@ func inside(s doc.Shape, p doc.Point) bool {
 	switch s.Kind {
 	case doc.Rect, doc.Text:
 		return s.Bounds().Has(p)
+	case doc.Ellipse:
+		b := s.Box
+		a := max(float64(b.Max.X-b.Min.X)/2, 0.5)
+		r := max(float64(b.Max.Y-b.Min.Y)/2, 0.5)
+		nx := (float64(p.X) - float64(b.Min.X+b.Max.X)/2) / a
+		ny := (float64(p.Y) - float64(b.Min.Y+b.Max.Y)/2) / r
+		return nx*nx+ny*ny <= 1
+	case doc.Polygon:
+		return s.Closed && inPolygon(s.Points, p)
 	case doc.Group:
 		for _, c := range s.Children {
 			if inside(c, p) {
@@ -272,18 +287,19 @@ func inside(s doc.Shape, p doc.Point) bool {
 	return false
 }
 
-// handles returns the resize handles of a lone selected rect or line:
-// rect corners clockwise from top-left, or line start and end.
+// handles returns the resize handles of a lone selected shape: box
+// corners clockwise from top-left for rects and ellipses, line ends, or
+// polygon vertices.
 func (m *Model) handles() []doc.Point {
 	if len(m.sel) != 1 {
 		return nil
 	}
 	s := m.shapes[m.sel[0]]
 	switch s.Kind {
-	case doc.Rect:
+	case doc.Rect, doc.Ellipse:
 		b := s.Box
 		return []doc.Point{b.Min, {X: b.Max.X, Y: b.Min.Y}, b.Max, {X: b.Min.X, Y: b.Max.Y}}
-	case doc.Line:
+	case doc.Line, doc.Polygon:
 		return s.Points
 	}
 	return nil
@@ -301,12 +317,12 @@ func (m *Model) handleAt(p doc.Point) int {
 // resize moves handle h of the lone selected shape to p.
 func (m *Model) resize(h int, p doc.Point) {
 	s := &m.shapes[m.sel[0]]
-	if s.Kind == doc.Line {
+	if s.Kind == doc.Line || s.Kind == doc.Polygon {
 		s.Points[h] = p
 		return
 	}
 
-	// Rect: the opposite corner stays put. Corners stay at least 2x2.
+	// Rect or ellipse: the opposite corner stays put. Corners stay at least 2x2.
 	far := m.handles()[(h+2)%4]
 	if p.X == far.X || p.Y == far.Y {
 		return
@@ -418,32 +434,131 @@ func (m *Model) toolbarClick(x int) {
 	}
 }
 
-// bresenham returns the cells on a straight line from a to b, both included.
-func bresenham(a, b doc.Point) []doc.Point {
-	dx, dy := abs(b.X-a.X), -abs(b.Y-a.Y)
+// maker returns how the active box tool builds its shape from the drag
+// start a and the pointer b.
+func (m *Model) maker() func(a, b doc.Point) doc.Shape {
+	st := m.style
+	switch m.tool {
+	case OvalTool:
+		return func(a, b doc.Point) doc.Shape {
+			return doc.Shape{Kind: doc.Ellipse, Box: doc.Span(a, b), Style: st}
+		}
+	case CircleTool:
+		return func(a, b doc.Point) doc.Shape {
+			return doc.Shape{Kind: doc.Ellipse, Box: circleBox(a, b), Style: st}
+		}
+	case TriTool:
+		return func(a, b doc.Point) doc.Shape {
+			x := doc.Span(a, b)
+			mid := (x.Min.X + x.Max.X) / 2
+			return doc.Shape{Kind: doc.Polygon, Closed: true, Style: st, Points: []doc.Point{
+				{X: mid, Y: x.Min.Y}, x.Max, {X: x.Min.X, Y: x.Max.Y},
+			}}
+		}
+	case DiamondTool:
+		return func(a, b doc.Point) doc.Shape {
+			x := doc.Span(a, b)
+			mx, my := (x.Min.X+x.Max.X)/2, (x.Min.Y+x.Max.Y)/2
+			return doc.Shape{Kind: doc.Polygon, Closed: true, Style: st, Points: []doc.Point{
+				{X: mx, Y: x.Min.Y}, {X: x.Max.X, Y: my}, {X: mx, Y: x.Max.Y}, {X: x.Min.X, Y: my},
+			}}
+		}
+	}
+	return func(a, b doc.Point) doc.Shape {
+		return doc.Shape{Kind: doc.Rect, Box: doc.Span(a, b), Style: st}
+	}
+}
+
+// circleBox grows from a toward b into a box that looks round: cells are
+// about twice as tall as wide, so it is 2h-1 wide for h rows. The drag's
+// larger side sets the size.
+func circleBox(a, b doc.Point) doc.Box {
+	h := max(abs(b.Y-a.Y)+1, (abs(b.X-a.X)+2)/2)
+	w := 2*h - 1
 	sx, sy := 1, 1
-	if a.X > b.X {
+	if b.X < a.X {
 		sx = -1
 	}
-	if a.Y > b.Y {
+	if b.Y < a.Y {
 		sy = -1
 	}
+	return doc.Span(a, doc.Point{X: a.X + sx*(w-1), Y: a.Y + sy*(h-1)})
+}
 
-	out := []doc.Point{a}
-	e := dx + dy
-	for a != b {
-		e2 := 2 * e
-		if e2 >= dy {
-			e += dy
-			a.X += sx
-		}
-		if e2 <= dx {
-			e += dx
-			a.Y += sy
-		}
-		out = append(out, a)
+// Polygon placing: each click adds a vertex. Clicking the first vertex
+// closes it; a double-click or esc finishes it open.
+
+func (m *Model) polyDown(p doc.Point, double bool) {
+	if m.poly == nil {
+		m.poly = &doc.Shape{Kind: doc.Polygon, Style: m.style, Points: []doc.Point{p, p}}
+		m.status = "click to add points - click the first to close, double-click or esc to finish"
+		return
 	}
-	return out
+
+	pts := m.poly.Points
+	switch {
+	case len(pts) >= 4 && p == pts[0]:
+		m.commitPoly(true)
+	case double:
+		m.commitPoly(false)
+	default:
+		m.poly.Points = append(pts[:len(pts)-1], p, p)
+	}
+}
+
+// track moves the rubber-band end of a polygon being placed.
+func (m *Model) track(p doc.Point) {
+	if m.poly != nil {
+		m.poly.Points[len(m.poly.Points)-1] = p
+	}
+}
+
+// commitPoly adds the polygon being placed, dropping its rubber-band end
+// and repeated points. It needs 2 points open or 3 closed.
+func (m *Model) commitPoly(closed bool) {
+	s := m.poly
+	if s == nil {
+		return
+	}
+	m.poly = nil
+	m.status = ""
+
+	pts := s.Points[:len(s.Points)-1]
+	var out []doc.Point
+	for _, q := range pts {
+		if len(out) == 0 || out[len(out)-1] != q {
+			out = append(out, q)
+		}
+	}
+	if closed && len(out) > 1 && out[len(out)-1] == out[0] {
+		out = out[:len(out)-1]
+	}
+	if len(out) < 2 || (closed && len(out) < 3) {
+		return
+	}
+
+	s.Points, s.Closed = out, closed
+	m.push()
+	m.shapes = append(m.shapes, *s)
+	m.setSel(len(m.shapes) - 1)
+}
+
+// inPolygon is the even-odd ray test at the cell centre.
+func inPolygon(pts []doc.Point, p doc.Point) bool {
+	in := false
+	x, y := float64(p.X), float64(p.Y)
+	for i, j := 0, len(pts)-1; i < len(pts); j, i = i, i+1 {
+		a, b := pts[i], pts[j]
+		ay, by := float64(a.Y), float64(b.Y)
+		if (ay > y) == (by > y) {
+			continue
+		}
+		cx := float64(a.X) + (y-ay)/(by-ay)*float64(b.X-a.X)
+		if x < cx {
+			in = !in
+		}
+	}
+	return in
 }
 
 func abs(n int) int {

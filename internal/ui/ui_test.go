@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -150,5 +151,72 @@ func TestViewFits(t *testing.T) {
 	press(m, "/", "a", "r", "r", "o", "w", "enter")
 	if !strings.Contains(m.View().Content, "match 1 of") {
 		t.Error("help search found nothing")
+	}
+}
+
+func TestShapeTools(t *testing.T) {
+	m := setup(t)
+
+	// Circle: a 4-row drag gives a 7-wide box (2h-1), round on screen.
+	press(m, "O")
+	dragTo(m, 0, 1, 1, 4)
+	if b := m.shapes[0].Box; b != doc.Span(doc.Point{}, doc.Point{X: 6, Y: 3}) {
+		t.Errorf("circle box %v", b)
+	}
+
+	// Triangle and diamond become editable polygons.
+	press(m, "y")
+	dragTo(m, 10, 1, 16, 5)
+	if s := m.shapes[1]; s.Kind != doc.Polygon || !s.Closed || len(s.Points) != 3 {
+		t.Errorf("triangle %+v", s)
+	}
+	press(m, "d")
+	dragTo(m, 20, 1, 26, 5)
+	if s := m.shapes[2]; len(s.Points) != 4 {
+		t.Errorf("diamond %+v", s)
+	}
+
+	// Oval resize through its corner handle.
+	press(m, "o")
+	dragTo(m, 30, 1, 38, 4)
+	press(m, "v")
+	dragTo(m, 38, 4, 40, 6)
+	if b := m.shapes[3].Box; b.Max != (doc.Point{X: 40, Y: 5}) {
+		t.Errorf("oval resized to %v", b)
+	}
+}
+
+func click(m *Model, x, y int) {
+	m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
+	m.Update(tea.MouseReleaseMsg{X: x, Y: y, Button: tea.MouseLeft})
+	m.clickAt = time.Time{} // keep separate clicks from reading as a double-click
+}
+
+func TestPolygonPlacing(t *testing.T) {
+	m := setup(t)
+	press(m, "p")
+
+	// Closed: click four corners, then the first again.
+	for _, c := range [][2]int{{0, 1}, {8, 1}, {8, 5}, {0, 5}, {0, 1}} {
+		click(m, c[0], c[1])
+	}
+	if len(m.shapes) != 1 || !m.shapes[0].Closed || len(m.shapes[0].Points) != 4 {
+		t.Fatalf("closed polygon: %+v", m.shapes)
+	}
+
+	// Open: three clicks, then esc.
+	for _, c := range [][2]int{{20, 1}, {30, 1}, {30, 6}} {
+		click(m, c[0], c[1])
+	}
+	press(m, "esc")
+	if len(m.shapes) != 2 || m.shapes[1].Closed || len(m.shapes[1].Points) != 3 {
+		t.Fatalf("open polyline: %+v", m.shapes[1:])
+	}
+
+	// A single click then esc adds nothing.
+	click(m, 40, 1)
+	press(m, "esc")
+	if len(m.shapes) != 2 {
+		t.Errorf("lone point added a shape")
 	}
 }

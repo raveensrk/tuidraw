@@ -16,11 +16,13 @@ const Version = 1
 type Kind string
 
 const (
-	Rect   Kind = "rect"
-	Line   Kind = "line"
-	Text   Kind = "text"
-	Stroke Kind = "stroke"
-	Group  Kind = "group"
+	Rect    Kind = "rect"
+	Ellipse Kind = "ellipse"
+	Polygon Kind = "polygon"
+	Line    Kind = "line"
+	Text    Kind = "text"
+	Stroke  Kind = "stroke"
+	Group   Kind = "group"
 )
 
 // Style is a border style for rects and lines.
@@ -78,7 +80,9 @@ func (b Box) Overlaps(o Box) bool {
 // Shape is one drawable object. One struct for every kind keeps JSON and
 // cloning simple; each kind reads only its own fields:
 //
-//	rect:   Box, Style
+//	rect:    Box, Style
+//	ellipse: Box, Style (circles are ellipses about twice as wide as tall)
+//	polygon: Points (vertices), Closed, Style
 //	line:   Points[0] start, Points[1] end, Style, Flip, Arrow
 //	text:   Points[0] top-left, Text
 //	stroke: Points (painted cells), Char
@@ -88,8 +92,9 @@ type Shape struct {
 	Box      Box     `json:"box,omitzero"`
 	Style    Style   `json:"style,omitempty"`
 	Points   []Point `json:"points,omitempty"`
-	Flip     bool    `json:"flip,omitempty"`  // line: vertical leg first
-	Arrow    bool    `json:"arrow,omitempty"` // line: arrowhead at end
+	Closed   bool    `json:"closed,omitempty"` // polygon: last vertex joins first
+	Flip     bool    `json:"flip,omitempty"`   // line: vertical leg first
+	Arrow    bool    `json:"arrow,omitempty"`  // line: arrowhead at end
 	Text     string  `json:"text,omitempty"`
 	Char     string  `json:"char,omitempty"`
 	Children []Shape `json:"children,omitempty"`
@@ -98,7 +103,7 @@ type Shape struct {
 // Bounds is the smallest box covering every cell the shape draws.
 func (s Shape) Bounds() Box {
 	switch s.Kind {
-	case Rect:
+	case Rect, Ellipse:
 		return s.Box
 	case Text:
 		lines := strings.Split(s.Text, "\n")
@@ -116,7 +121,7 @@ func (s Shape) Bounds() Box {
 		return b
 	}
 
-	// line and stroke: cover their points
+	// line, polygon and stroke: cover their points
 	b := Box{s.Points[0], s.Points[0]}
 	for _, p := range s.Points[1:] {
 		b = b.Union(Box{p, p})
@@ -159,9 +164,9 @@ func Clones(list []Shape) []Shape {
 	return out
 }
 
-// SetStyle changes the border style of rects and lines, recursing into groups.
+// SetStyle changes the border style of outlined shapes, recursing into groups.
 func (s *Shape) SetStyle(st Style) {
-	if s.Kind == Rect || s.Kind == Line {
+	if s.Kind == Rect || s.Kind == Ellipse || s.Kind == Polygon || s.Kind == Line {
 		s.Style = st
 	}
 	for i := range s.Children {

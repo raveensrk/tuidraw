@@ -50,7 +50,6 @@ var styles = map[class]lipgloss.Style{
 var (
 	barStyle    = lipgloss.NewStyle().Foreground(ink).Background(bar)
 	activeStyle = lipgloss.NewStyle().Foreground(black).Background(accent).Bold(true)
-	dimStyle    = lipgloss.NewStyle().Foreground(dim).Background(bar)
 )
 
 func (m *Model) View() tea.View {
@@ -75,11 +74,14 @@ type zone struct {
 	tool     Tool
 }
 
+// toolLabel is a tool's toolbar text: its key, then its name.
+func toolLabel(key, label string) string { return " " + key + " " + label + " " }
+
 func (m *Model) toolbarZones() []zone {
 	var out []zone
-	x := len(" tuidraw  ")
+	x := 0
 	for _, t := range tools {
-		w := len(fmt.Sprintf(" %s %s ", strings.ToUpper(t.key), t.label))
+		w := len(toolLabel(t.key, t.label))
 		out = append(out, zone{x, x + w, t.tool})
 		x += w
 	}
@@ -88,21 +90,14 @@ func (m *Model) toolbarZones() []zone {
 
 func (m *Model) toolbar() string {
 	var sb strings.Builder
-	sb.WriteString(barStyle.Bold(true).Render(" tuidraw  "))
 	for _, t := range tools {
-		label := fmt.Sprintf(" %s %s ", strings.ToUpper(t.key), t.label)
+		label := toolLabel(t.key, t.label)
 		if t.tool == m.tool {
 			sb.WriteString(activeStyle.Render(label))
 			continue
 		}
 		sb.WriteString(barStyle.Render(label))
 	}
-
-	arrow := "off"
-	if m.arrow {
-		arrow = "on"
-	}
-	sb.WriteString(dimStyle.Render(fmt.Sprintf("  │ 1-5 style %s │ a arrow %s │ c brush %s ", m.style, arrow, m.brush)))
 	return pad(sb.String(), m.w, barStyle)
 }
 
@@ -119,7 +114,11 @@ func (m *Model) statusLine() string {
 	if m.dirty {
 		name += "*"
 	}
-	right := fmt.Sprintf("%d,%d", m.cursor.X, m.cursor.Y)
+	arrow := "off"
+	if m.arrow {
+		arrow = "on"
+	}
+	right := fmt.Sprintf("%s  arrow %s  brush %s  │  %d,%d", m.style, arrow, m.brush, m.cursor.X, m.cursor.Y)
 	if len(m.sel) > 0 {
 		right += fmt.Sprintf("  %d selected", len(m.sel))
 	}
@@ -151,6 +150,10 @@ func (m *Model) canvas() string {
 			shapes = append(shapes, m.edit.shape)
 		}
 		extra = &m.edit.shape
+	}
+	if m.poly != nil {
+		shapes = append(append([]doc.Shape(nil), shapes...), *m.poly)
+		extra = m.poly
 	}
 	if m.drag != nil && m.drag.kind == dragDraw {
 		shapes = append(append([]doc.Shape(nil), shapes...), m.drag.preview)

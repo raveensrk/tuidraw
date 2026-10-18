@@ -12,14 +12,21 @@ import (
 
 const helpText = `tuidraw - design terminal UIs on an infinite character canvas
 
-Draw boxes, lines, text and brush strokes on a grid where one cell is one
-terminal character. Shapes stay editable: select, move, resize, restyle.
+Draw boxes, ovals, circles, polygons, lines, text and brush strokes on a
+grid where one cell is one terminal character. Shapes stay editable: select, move, resize, restyle.
 Borders that touch or cross join up (┼ ├ ┬). Drawings save as .tuidraw
 (JSON) next to where you ran it, and export as plain .txt.
 
 TOOLS
   v              select: click, drag to move, drag empty space to marquee
   r              rect: drag a box; a click makes a 12x5 box
+  o              oval: drag its bounding box
+  O              circle: drag; kept about twice as wide as tall, which
+                 looks round because cells are tall
+  y              triangle: drag its bounding box
+  d              diamond: drag its bounding box
+  p              polygon: click each corner; click the first corner to
+                 close it, double-click or esc to leave it open
   l              line: drag; elbow follows the way you first move
   t              text: click to type, click a text to edit it
   b              brush: drag to paint the brush character
@@ -39,7 +46,8 @@ SELECTION
   esc            cancel a drag, else clear the selection
   ctrl+a         select all
   shift+arrows, H J K L   nudge the selection one cell
-  drag a corner  resize a lone rect; drag an end to move a line end
+  drag a handle  resize a lone rect or oval by a corner; move a line end
+                 or a polygon corner
   x, del, bksp   delete
   ctrl+c         copy (also to the system clipboard as text)
   ctrl+x         cut
@@ -74,6 +82,8 @@ FILE
 COLORS AND SYMBOLS
   blue           selected shapes; blue blocks are resize handles
   orange         shape being drawn or typed
+  ╱ ╲ < >        slanted polygon sides and points; straight sides join
+                 boxes like any border
   grey block     keyboard and mouse cursor cell
   · dotted ring  marquee selection
 

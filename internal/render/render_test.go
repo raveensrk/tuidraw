@@ -95,3 +95,53 @@ func TestHit(t *testing.T) {
 		t.Error("empty inside should not hit")
 	}
 }
+
+func TestEllipse(t *testing.T) {
+	c := doc.Shape{Kind: doc.Ellipse, Box: doc.Span(pt(0, 0), pt(10, 5)), Style: doc.Rounded}
+	want := "  ╭─────╮  \n╭─╯     ╰─╮\n│         │\n│         │\n╰─╮     ╭─╯\n  ╰─────╯  "
+	if got := draw(c); got != want {
+		t.Errorf("circle:\n%s\nwant\n%s", got, want)
+	}
+
+	// A flat oval through a box wall joins it, with no stubs.
+	box := rect(0, 0, 10, 4, doc.Light)
+	oval := doc.Shape{Kind: doc.Ellipse, Box: doc.Span(pt(4, 1), pt(16, 3)), Style: doc.Light}
+	want = "┌─────────┐      \n│    ┌────┼────┐ \n│    │    │    │ \n│    └────┼────┘ \n└─────────┘      "
+	if got := draw(box, oval); got != want {
+		t.Errorf("oval join:\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestEllipsePathIsClosedLoop(t *testing.T) {
+	for _, b := range [][4]int{{0, 0, 16, 6}, {0, 0, 30, 8}, {0, 0, 4, 2}, {0, 0, 2, 9}} {
+		path := EllipsePath(doc.Span(pt(b[0], b[1]), pt(b[2], b[3])))
+		for i := range path {
+			a, c := path[i], path[(i+1)%len(path)]
+			if abs(a.X-c.X)+abs(a.Y-c.Y) != 1 {
+				t.Errorf("box %v: step %v -> %v is not 4-connected", b, a, c)
+				break
+			}
+		}
+	}
+}
+
+func TestPolygon(t *testing.T) {
+	tri := doc.Shape{Kind: doc.Polygon, Closed: true, Style: doc.Light, Points: []doc.Point{pt(6, 0), pt(12, 4), pt(0, 4)}}
+	want := "      ╱╲     \n    ╱╱ ╲╲    \n   ╱     ╲   \n ╱╱       ╲╲ \n╱───────────╲"
+	if got := draw(tri); got != want {
+		t.Errorf("triangle:\n%s\nwant\n%s", got, want)
+	}
+
+	dia := doc.Shape{Kind: doc.Polygon, Closed: true, Style: doc.Light, Points: []doc.Point{pt(6, 0), pt(12, 3), pt(6, 6), pt(0, 3)}}
+	want = "     ╱╱╲     \n   ╱╱  ╲╲    \n ╱╱      ╲╲  \n<╲         ╲>\n  ╲╲      ╱╱ \n    ╲╲  ╱╱   \n      ╲╱     "
+	if got := draw(dia); got != want {
+		t.Errorf("diamond:\n%s\nwant\n%s", got, want)
+	}
+
+	// Straight sides use edge masks: an open L-shaped polyline joins a box.
+	poly := doc.Shape{Kind: doc.Polygon, Style: doc.Light, Points: []doc.Point{pt(2, 0), pt(2, 2), pt(6, 2)}}
+	want = "┌─┬─┐  \n│ │ │  \n│ └─┼──\n└───┘  "
+	if got := draw(rect(0, 0, 4, 3, doc.Light), poly); got != want {
+		t.Errorf("polyline join:\n%s\nwant\n%s", got, want)
+	}
+}
