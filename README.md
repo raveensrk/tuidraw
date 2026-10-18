@@ -6,6 +6,15 @@ what you draw is exactly what a TUI can show.
 
 ![tuidraw editing a music player mockup](doc/screenshot.png)
 
+## Purpose
+
+Sketch a terminal UI before you build it. General design tools like Figma
+work in pixels, so a mockup never quite matches what a terminal can show.
+ASCII editors like ASCIIFlow, Monodraw or Durdraw either stop at plain boxes
+and lines, lack color, or are hard to use. tuidraw sits between them: a
+lightweight, minimal canvas with sensible controls, where every shape lands
+on the character grid, so the design you draw is the screen you will build.
+
 ## Features
 
 - Infinite canvas: pan and scroll in any direction.
