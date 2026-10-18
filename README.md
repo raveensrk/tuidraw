@@ -1,10 +1,17 @@
 # tuidraw
 
+## Description
+
 An infinite-canvas editor for designing terminal UIs, and itself a terminal
 app. Think Figma or Freeform, but every cell is one terminal character, so
 what you draw is exactly what a TUI can show.
 
 ![tuidraw editing a music player mockup](doc/screenshot.png)
+
+> [!NOTE]
+> tuidraw is vibe coded: it was built by prompting Claude Opus 5.5 (low
+> effort) in Claude Code, with a person steering, testing and reviewing.
+> Expect rough edges, and read the code before relying on it.
 
 ## Purpose
 
