@@ -167,21 +167,29 @@ func (g *Grid) edge(p doc.Point, mask uint8, st doc.Style, z int) {
 }
 
 // paint gives the cell the current shape's background, when it has one or
-// is filled (a filled shape with no color clears what was below).
+// is filled (a filled shape with no color clears what was below). Ovals and
+// polygons skip their outline: a colored cell is a full square, which would
+// stick out past a curved or slanted edge.
 func (g *Grid) paint(c *cell) {
+	if g.cur.Kind == doc.Ellipse || g.cur.Kind == doc.Polygon {
+		return
+	}
 	if g.cur.BG != "" || g.cur.Fill {
 		c.bg = g.cur.BG
 	}
 }
 
-// wipe empties a cell for a filled shape: nothing below shows through.
-func (g *Grid) wipe(p doc.Point, z int) {
+// wipe empties a cell for a filled shape: nothing below shows through. The
+// cell takes the shape's background when colored, else the default.
+func (g *Grid) wipe(p doc.Point, z int, colored bool) {
 	c := g.at(p)
 	if c == nil {
 		return
 	}
 	*c = cell{edgeZ: z, solidZ: z}
-	g.paint(c)
+	if colored {
+		c.bg = g.cur.BG
+	}
 }
 
 func (g *Grid) solid(p doc.Point, r rune, z int) {
@@ -326,26 +334,27 @@ func (g *Grid) text(s doc.Shape, z int) {
 	}
 }
 
-// fill wipes every cell the shape covers, outline included.
+// fill wipes every cell the shape covers. Inside cells take the background
+// color; oval and polygon outline cells are wiped but stay uncolored.
 func (g *Grid) fill(s doc.Shape, z int) {
 	b := s.Bounds()
 	for y := max(b.Min.Y, g.Box.Min.Y); y <= min(b.Max.Y, g.Box.Max.Y); y++ {
 		for x := max(b.Min.X, g.Box.Min.X); x <= min(b.Max.X, g.Box.Max.X); x++ {
 			if p := (doc.Point{X: x, Y: y}); Inside(s, p) {
-				g.wipe(p, z)
+				g.wipe(p, z, true)
 			}
 		}
 	}
 	if s.Kind == doc.Ellipse {
 		for _, p := range EllipsePath(s.Box) {
-			g.wipe(p, z)
+			g.wipe(p, z, false)
 		}
 	}
 	if s.Kind == doc.Polygon {
 		n := len(s.Points)
 		for i := range n {
 			for _, p := range Bresenham(s.Points[i], s.Points[(i+1)%n]) {
-				g.wipe(p, z)
+				g.wipe(p, z, false)
 			}
 		}
 	}

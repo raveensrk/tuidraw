@@ -176,3 +176,14 @@ func TestColors(t *testing.T) {
 		t.Errorf("label %q ink %q", r, fg)
 	}
 }
+
+func TestFilledOvalOutlineUncolored(t *testing.T) {
+	c := doc.Shape{Kind: doc.Ellipse, Box: doc.Span(pt(0, 0), pt(10, 5)), BG: "blue", Fill: true}
+	g := Draw([]doc.Shape{c}, c.Box)
+	if _, _, bg := g.Cell(pt(2, 0)); bg != "" {
+		t.Errorf("outline corner bg %q, want none", bg)
+	}
+	if _, _, bg := g.Cell(pt(5, 2)); bg != "blue" {
+		t.Errorf("inside bg %q, want blue", bg)
+	}
+}

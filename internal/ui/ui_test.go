@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/raveensrk/tuidraw/internal/doc"
 	"github.com/raveensrk/tuidraw/internal/export"
@@ -266,5 +267,14 @@ func TestPaletteFillEraser(t *testing.T) {
 	press(m, "u")
 	if len(m.shapes) != 2 {
 		t.Errorf("undo after erase gave %d shapes", len(m.shapes))
+	}
+}
+
+func TestStatusGap(t *testing.T) {
+	m := setup(t)
+	m.status = strings.Repeat("x", 200)
+	line := ansi.Strip(m.statusLine())
+	if strings.Contains(line, "xlight") || !strings.Contains(line, "x…  light") {
+		t.Errorf("long status not cut with an ellipsis and a gap: %q", line)
 	}
 }

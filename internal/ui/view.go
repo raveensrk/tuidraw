@@ -145,11 +145,21 @@ func (m *Model) statusLine() string {
 	parts = append(parts, barStyle.Render(tail+"  "+name+"  ? help "))
 	right := strings.Join(parts, "")
 
-	space := m.w - lipgloss.Width(right) - 1
+	// Room for the message: width minus the right side, a leading space and
+	// a two-space gap that always separates the two.
+	const gapMin = 2
+	space := m.w - lipgloss.Width(right) - 1 - gapMin
+	// A message that does not fit ends in "…"; with almost no room, a stub
+	// says nothing, so drop it.
+	const stubMin = 8
 	if lipgloss.Width(left) > space {
-		left = string([]rune(left)[:max(space, 0)])
+		full := []rune(left)
+		left = ""
+		if space >= stubMin {
+			left = string(full[:space-1]) + "…"
+		}
 	}
-	gap := strings.Repeat(" ", max(space-lipgloss.Width(left), 0))
+	gap := strings.Repeat(" ", max(space-lipgloss.Width(left), 0)+gapMin)
 	return pad(barStyle.Render(" "+left+gap)+right, m.w, barStyle)
 }
 
