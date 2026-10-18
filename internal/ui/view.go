@@ -2,7 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -22,6 +24,7 @@ var (
 	ink     = lipgloss.Color("#d0d0d0")
 	black   = lipgloss.Color("#000000")
 	cursorc = lipgloss.Color("#4e4e4e")
+	selTint = lipgloss.Color("#1c3a5e")
 )
 
 // class is how a canvas cell is painted.
@@ -39,7 +42,7 @@ const (
 
 var styles = map[class]lipgloss.Style{
 	plain:   lipgloss.NewStyle().Foreground(ink),
-	picked:  lipgloss.NewStyle().Foreground(accent),
+	picked:  lipgloss.NewStyle().Foreground(accent).Background(selTint),
 	handle:  lipgloss.NewStyle().Foreground(black).Background(accent),
 	preview: lipgloss.NewStyle().Foreground(warm),
 	marquee: lipgloss.NewStyle().Foreground(accent),
@@ -75,7 +78,7 @@ type zone struct {
 }
 
 // toolLabel is a tool's toolbar text: its key, then its name.
-func toolLabel(key, label string) string { return " " + key + " " + label + " " }
+func toolLabel(key, label string) string { return " " + key + " " + label }
 
 func (m *Model) toolbarZones() []zone {
 	var out []zone
@@ -102,6 +105,10 @@ func (m *Model) toolbar() string {
 }
 
 func (m *Model) statusLine() string {
+	if m.palette != "" {
+		return m.paletteLine()
+	}
+
 	left := m.status
 	if m.prompt != nil {
 		left = m.prompt.label + string(m.prompt.value) + "█"
@@ -118,18 +125,76 @@ func (m *Model) statusLine() string {
 	if m.arrow {
 		arrow = "on"
 	}
-	right := fmt.Sprintf("%s  arrow %s  brush %s  │  %d,%d", m.style, arrow, m.brush, m.cursor.X, m.cursor.Y)
-	if len(m.sel) > 0 {
-		right += fmt.Sprintf("  %d selected", len(m.sel))
+	fill := ""
+	if m.fill {
+		fill = " filled"
 	}
-	right += "  " + name + "  ? help "
+
+	// Right side: style, colors as swatches, position, file.
+	parts := []string{
+		barStyle.Render(fmt.Sprintf("%s  arrow %s  brush %s  ink ", m.style, arrow, m.brush)),
+		swatch(m.ink),
+		barStyle.Render(" bg "),
+		swatch(m.paper),
+		barStyle.Render(fmt.Sprintf("%s  │  %d,%d", fill, m.cursor.X, m.cursor.Y)),
+	}
+	tail := ""
+	if len(m.sel) > 0 {
+		tail += fmt.Sprintf("  %d selected", len(m.sel))
+	}
+	parts = append(parts, barStyle.Render(tail+"  "+name+"  ? help "))
+	right := strings.Join(parts, "")
 
 	space := m.w - lipgloss.Width(right) - 1
 	if lipgloss.Width(left) > space {
 		left = string([]rune(left)[:max(space, 0)])
 	}
 	gap := strings.Repeat(" ", max(space-lipgloss.Width(left), 0))
-	return pad(barStyle.Render(" "+left+gap+right), m.w, barStyle)
+	return pad(barStyle.Render(" "+left+gap)+right, m.w, barStyle)
+}
+
+// termColor maps a palette color to the terminal's own ANSI color, so the
+// editor shows exactly what the .ans export will.
+func termColor(c doc.Color) color.Color {
+	return lipgloss.Color(strconv.Itoa(c.Index()))
+}
+
+// swatch shows a color as two cells, or a dotted box for the default.
+func swatch(c doc.Color) string {
+	if c == "" {
+		return barStyle.Render("··")
+	}
+	return lipgloss.NewStyle().Foreground(termColor(c)).Background(bar).Render("██")
+}
+
+// paletteStart is where the first swatch begins in the palette line.
+func (m *Model) paletteStart() int { return len(" " + m.palette + ":  0 none ") }
+
+// paletteLine replaces the status row while a color is being picked.
+func (m *Model) paletteLine() string {
+	var sb strings.Builder
+	sb.WriteString(barStyle.Render(" " + m.palette + ":  0 none "))
+	for i, c := range doc.Colors {
+		sb.WriteString(barStyle.Render(" " + string(paletteKeys[i])))
+		sb.WriteString(swatch(c))
+	}
+	sb.WriteString(barStyle.Render("   key or click, esc cancels"))
+	return pad(sb.String(), m.w, barStyle)
+}
+
+// paletteClick picks the color under screen column x of the palette line.
+func (m *Model) paletteClick(x int) {
+	const stride = 4 // each entry is " k██": space, key, two swatch cells
+	start := m.paletteStart()
+	if x < start {
+		if x >= start-len("0 none ") {
+			m.pickColor("")
+		}
+		return
+	}
+	if i := (x - start) / stride; i < len(doc.Colors) {
+		m.pickColor(doc.Colors[i])
+	}
 }
 
 // canvas paints the visible window of the world, then overlays selection,
@@ -184,21 +249,45 @@ func (m *Model) canvas() string {
 		ring = doc.Span(m.drag.start, m.drag.last)
 	}
 
+	// Runs of cells with the same look render as one styled string.
+	type look struct {
+		class  class
+		fg, bg doc.Color
+	}
+	cache := map[look]lipgloss.Style{}
+	styleOf := func(k look) lipgloss.Style {
+		if st, ok := cache[k]; ok {
+			return st
+		}
+		st := styles[k.class]
+		if k.fg != "" && k.class != handle && k.class != caret && k.class != cursor {
+			st = st.Foreground(termColor(k.fg))
+		}
+		if k.bg != "" {
+			st = st.Background(termColor(k.bg))
+		}
+		if k.class == picked {
+			st = st.Background(selTint)
+		}
+		cache[k] = st
+		return st
+	}
+
 	rows := make([]string, 0, ch)
 	for y := box.Min.Y; y <= box.Max.Y; y++ {
 		var line strings.Builder
 		var run []rune
-		cur := plain
+		cur := look{}
 		flush := func() {
 			if len(run) > 0 {
-				line.WriteString(styles[cur].Render(string(run)))
+				line.WriteString(styleOf(cur).Render(string(run)))
 				run = run[:0]
 			}
 		}
 
 		for x := box.Min.X; x <= box.Max.X; x++ {
 			p := doc.Point{X: x, Y: y}
-			r := grid.Rune(p)
+			r, fg, bg := grid.Cell(p)
 			c := plain
 			switch {
 			case pre != nil && pre.Rune(p) != ' ':
@@ -215,9 +304,9 @@ func (m *Model) canvas() string {
 			if k, ok := marks[p]; ok {
 				c = k
 			}
-			if c != cur {
+			if k := (look{c, fg, bg}); k != cur {
 				flush()
-				cur = c
+				cur = k
 			}
 			run = append(run, r)
 		}

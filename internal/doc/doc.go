@@ -39,6 +39,28 @@ const (
 // Styles in the order the 1-5 keys pick them.
 var Styles = []Style{Light, Heavy, Double, Rounded, ASCII}
 
+// Color is one of the 16 ANSI terminal colors by name, or "" for the
+// terminal's default. Names keep project files readable.
+type Color string
+
+// Colors in ANSI order: index 0-7 normal, 8-15 bright. The palette keys
+// 1-8 and a-h pick them in this order.
+var Colors = []Color{
+	"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+	"bright_black", "bright_red", "bright_green", "bright_yellow",
+	"bright_blue", "bright_magenta", "bright_cyan", "bright_white",
+}
+
+// Index is the color's ANSI number 0-15, or -1 for the default.
+func (c Color) Index() int {
+	for i, x := range Colors {
+		if x == c {
+			return i
+		}
+	}
+	return -1
+}
+
 // Point is a cell on the grid. X grows right, Y grows down.
 type Point struct {
 	X int `json:"x"`
@@ -95,6 +117,9 @@ type Shape struct {
 	Closed   bool    `json:"closed,omitempty"` // polygon: last vertex joins first
 	Flip     bool    `json:"flip,omitempty"`   // line: vertical leg first
 	Arrow    bool    `json:"arrow,omitempty"`  // line: arrowhead at end
+	FG       Color   `json:"fg,omitempty"`     // ink: outline, text and brush color
+	BG       Color   `json:"bg,omitempty"`     // background behind the shape's cells
+	Fill     bool    `json:"fill,omitempty"`   // rect, ellipse, closed polygon: opaque inside
 	Text     string  `json:"text,omitempty"`
 	Char     string  `json:"char,omitempty"`
 	Children []Shape `json:"children,omitempty"`
@@ -171,6 +196,31 @@ func (s *Shape) SetStyle(st Style) {
 	}
 	for i := range s.Children {
 		s.Children[i].SetStyle(st)
+	}
+}
+
+// Fillable reports whether the shape has an inside to fill.
+func (s Shape) Fillable() bool {
+	return s.Kind == Rect || s.Kind == Ellipse || (s.Kind == Polygon && s.Closed)
+}
+
+// Paint sets ink, background or fill, recursing into groups. A nil
+// argument leaves that property alone.
+func (s *Shape) Paint(fg, bg *Color, fill *bool) {
+	if s.Kind == Group {
+		for i := range s.Children {
+			s.Children[i].Paint(fg, bg, fill)
+		}
+		return
+	}
+	if fg != nil {
+		s.FG = *fg
+	}
+	if bg != nil {
+		s.BG = *bg
+	}
+	if fill != nil && s.Fillable() {
+		s.Fill = *fill
 	}
 }
 

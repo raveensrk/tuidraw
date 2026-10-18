@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -22,6 +23,13 @@ func (m *Model) mouse(msg tea.MouseMsg) {
 		return
 
 	case tea.MouseClickMsg:
+		if m.palette != "" {
+			if ev.Y == m.h-1 {
+				m.paletteClick(ev.X)
+				return
+			}
+			m.palette = ""
+		}
 		if ev.Y == 0 {
 			m.toolbarClick(ev.X)
 			return
@@ -93,24 +101,32 @@ func (m *Model) down(p doc.Point, toggle bool) {
 	case Select:
 		m.selectDown(p, toggle, double)
 	case RectTool, OvalTool, CircleTool, TriTool, DiamondTool:
-		mk := m.maker()
+		base := m.maker()
+		mk := func(a, b doc.Point) doc.Shape {
+			s := base(a, b)
+			m.dress(&s)
+			return s
+		}
 		m.drag = &drag{kind: dragDraw, start: p, last: p, make: mk, preview: mk(p, p)}
 	case PolyTool:
 		m.polyDown(p, double)
 	case LineTool:
 		m.drag = &drag{kind: dragDraw, start: p, last: p,
-			preview: doc.Shape{Kind: doc.Line, Points: []doc.Point{p, p}, Style: m.style, Arrow: m.arrow}}
+			preview: m.dressed(doc.Shape{Kind: doc.Line, Points: []doc.Point{p, p}, Style: m.style, Arrow: m.arrow})}
 	case TextTool:
 		m.commitEdit()
 		if i := m.hit(p); i >= 0 && m.shapes[i].Kind == doc.Text {
 			m.startEdit(i)
 			return
 		}
-		m.edit = &edit{index: -1, shape: doc.Shape{Kind: doc.Text, Points: []doc.Point{p}}}
+		m.edit = &edit{index: -1, shape: m.dressed(doc.Shape{Kind: doc.Text, Points: []doc.Point{p}})}
 		m.status = "typing - esc to finish"
 	case Brush:
 		m.drag = &drag{kind: dragDraw, start: p, last: p,
-			preview: doc.Shape{Kind: doc.Stroke, Points: []doc.Point{p}, Char: m.brush}}
+			preview: m.dressed(doc.Shape{Kind: doc.Stroke, Points: []doc.Point{p}, Char: m.brush})}
+	case Eraser:
+		m.drag = &drag{kind: dragErase, start: p, last: p}
+		m.erase(p)
 	}
 }
 
@@ -172,6 +188,37 @@ func (m *Model) move(p doc.Point) {
 			d.pushed = true
 		}
 		m.resize(d.handle, p)
+	case dragErase:
+		for _, q := range render.Bresenham(doc.Point{X: p.X - dx, Y: p.Y - dy}, p)[1:] {
+			m.erase(q)
+		}
+	}
+}
+
+// erase removes what the eraser touches at p: the brush cells under it, or
+// the whole of any other shape drawn there. One drag is one undo step.
+func (m *Model) erase(p doc.Point) {
+	d := m.drag
+	for i := len(m.shapes) - 1; i >= 0; i-- {
+		s := &m.shapes[i]
+		if !render.Hit(*s, p) {
+			continue
+		}
+		if !d.pushed {
+			m.push()
+			d.pushed = true
+		}
+		m.sel = nil
+
+		if s.Kind != doc.Stroke {
+			m.shapes = slices.Delete(m.shapes, i, i+1)
+			return
+		}
+		s.Points = slices.DeleteFunc(s.Points, func(q doc.Point) bool { return q == p })
+		if len(s.Points) == 0 {
+			m.shapes = slices.Delete(m.shapes, i, i+1)
+		}
+		return
 	}
 }
 
@@ -257,34 +304,11 @@ func (m *Model) hit(p doc.Point) int {
 		}
 	}
 	for i := len(m.shapes) - 1; i >= 0; i-- {
-		if inside(m.shapes[i], p) {
+		if render.Inside(m.shapes[i], p) {
 			return i
 		}
 	}
 	return -1
-}
-
-func inside(s doc.Shape, p doc.Point) bool {
-	switch s.Kind {
-	case doc.Rect, doc.Text:
-		return s.Bounds().Has(p)
-	case doc.Ellipse:
-		b := s.Box
-		a := max(float64(b.Max.X-b.Min.X)/2, 0.5)
-		r := max(float64(b.Max.Y-b.Min.Y)/2, 0.5)
-		nx := (float64(p.X) - float64(b.Min.X+b.Max.X)/2) / a
-		ny := (float64(p.Y) - float64(b.Min.Y+b.Max.Y)/2) / r
-		return nx*nx+ny*ny <= 1
-	case doc.Polygon:
-		return s.Closed && inPolygon(s.Points, p)
-	case doc.Group:
-		for _, c := range s.Children {
-			if inside(c, p) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // handles returns the resize handles of a lone selected shape: box
@@ -490,7 +514,8 @@ func circleBox(a, b doc.Point) doc.Box {
 
 func (m *Model) polyDown(p doc.Point, double bool) {
 	if m.poly == nil {
-		m.poly = &doc.Shape{Kind: doc.Polygon, Style: m.style, Points: []doc.Point{p, p}}
+		poly := m.dressed(doc.Shape{Kind: doc.Polygon, Style: m.style, Points: []doc.Point{p, p}})
+		m.poly = &poly
 		m.status = "click to add points - click the first to close, double-click or esc to finish"
 		return
 	}
@@ -541,24 +566,6 @@ func (m *Model) commitPoly(closed bool) {
 	m.push()
 	m.shapes = append(m.shapes, *s)
 	m.setSel(len(m.shapes) - 1)
-}
-
-// inPolygon is the even-odd ray test at the cell centre.
-func inPolygon(pts []doc.Point, p doc.Point) bool {
-	in := false
-	x, y := float64(p.X), float64(p.Y)
-	for i, j := 0, len(pts)-1; i < len(pts); j, i = i, i+1 {
-		a, b := pts[i], pts[j]
-		ay, by := float64(a.Y), float64(b.Y)
-		if (ay > y) == (by > y) {
-			continue
-		}
-		cx := float64(a.X) + (y-ay)/(by-ay)*float64(b.X-a.X)
-		if x < cx {
-			in = !in
-		}
-	}
-	return in
 }
 
 func abs(n int) int {

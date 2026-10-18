@@ -15,7 +15,8 @@ const helpText = `tuidraw - design terminal UIs on an infinite character canvas
 Draw boxes, ovals, circles, polygons, lines, text and brush strokes on a
 grid where one cell is one terminal character. Shapes stay editable: select, move, resize, restyle.
 Borders that touch or cross join up (┼ ├ ┬). Drawings save as .tuidraw
-(JSON) next to where you ran it, and export as plain .txt.
+(JSON) next to where you ran it, and export as plain .txt and as .ans
+(text with ANSI color codes: cat it in a terminal to see the colors).
 
 TOOLS
   v              select: click, drag to move, drag empty space to marquee
@@ -30,6 +31,8 @@ TOOLS
   l              line: drag; elbow follows the way you first move
   t              text: click to type, click a text to edit it
   b              brush: drag to paint the brush character
+  e              eraser: drag over shapes to delete them; on brush
+                 strokes it rubs out only the cells it touches
   click toolbar  pick a tool with the mouse
 
 POINTER
@@ -64,6 +67,16 @@ STYLE
   f              flip which leg of a selected elbow line comes first
   c then a key   set the brush character
 
+COLOR
+  i              ink: outline, text and brush color
+  I              background color behind a shape's cells
+                 then 0 for the terminal default, 1-8 for black red green
+                 yellow blue magenta cyan white, a-h for their bright
+                 versions; or click a swatch; esc cancels
+  F              fill: rects, ovals and closed polygons become opaque and
+                 hide what is below; the background color fills them
+                 colors and fill apply to the selection and to new shapes
+
 TEXT EDITING
   type           insert at the caret
   enter          new line
@@ -74,13 +87,14 @@ TEXT EDITING
 
 FILE
   ctrl+s         save (asks for a name the first time)
-  ctrl+e         export plain text to <name>.txt
+  ctrl+e         export <name>.txt (plain) and <name>.ans (color)
   u, ctrl+z      undo
   U, ctrl+r, ctrl+y   redo
   q              quit (twice if unsaved), ctrl+q quits at once
 
 COLORS AND SYMBOLS
-  blue           selected shapes; blue blocks are resize handles
+  blue tint      selected shapes; blue blocks are resize handles
+  ·· swatch      terminal default color (no color set)
   orange         shape being drawn or typed
   ╱ ╲ < >        slanted polygon sides and points; straight sides join
                  boxes like any border

@@ -39,6 +39,7 @@ const (
 	LineTool
 	TextTool
 	Brush
+	Eraser
 )
 
 // tools lists each tool with its key and toolbar label.
@@ -47,7 +48,7 @@ var tools = []struct {
 	key   string
 	label string
 }{
-	{Select, "v", "select"},
+	{Select, "v", "sel"},
 	{RectTool, "r", "rect"},
 	{OvalTool, "o", "oval"},
 	{CircleTool, "O", "circle"},
@@ -57,6 +58,7 @@ var tools = []struct {
 	{LineTool, "l", "line"},
 	{TextTool, "t", "text"},
 	{Brush, "b", "brush"},
+	{Eraser, "e", "erase"},
 }
 
 const (
@@ -80,6 +82,7 @@ const (
 	dragHandle
 	dragMarquee
 	dragPan
+	dragErase
 )
 
 type drag struct {
@@ -136,7 +139,12 @@ type Model struct {
 	clip      []doc.Shape
 	status    string
 	quitArmed bool
-	charArmed bool // next key sets the brush character
+	charArmed bool   // next key sets the brush character
+	palette   string // "ink" or "paper" while picking a color, else ""
+
+	ink   doc.Color // defaults for new shapes
+	paper doc.Color
+	fill  bool
 
 	clickAt  time.Time
 	clickPos doc.Point
@@ -265,6 +273,9 @@ func (m *Model) key(k tea.KeyPressMsg) tea.Cmd {
 	case m.edit != nil:
 		m.editKey(k)
 		return nil
+	case m.palette != "":
+		m.paletteKey(s)
+		return nil
 	case m.charArmed:
 		m.charArmed = false
 		if k.Text != "" && s != "esc" {
@@ -344,6 +355,12 @@ func (m *Model) key(k tea.KeyPressMsg) tea.Cmd {
 		m.toggleArrow()
 	case "f":
 		m.flip()
+	case "i":
+		m.palette = "ink"
+	case "I":
+		m.palette = "paper"
+	case "F":
+		m.toggleFill()
 	case "c":
 		m.charArmed = true
 		m.status = "press a key for the brush character"
@@ -414,6 +431,79 @@ func (m *Model) nudge(dx, dy int) {
 	for _, i := range m.sel {
 		m.shapes[i].Move(dx, dy)
 	}
+}
+
+// dress gives a new shape the current ink, background and fill.
+func (m *Model) dress(s *doc.Shape) {
+	s.FG, s.BG = m.ink, m.paper
+	s.Fill = m.fill && s.Fillable()
+}
+
+func (m *Model) dressed(s doc.Shape) doc.Shape {
+	m.dress(&s)
+	return s
+}
+
+// paletteKeys maps palette keys to colors: 0 is the terminal default,
+// 1-8 the normal colors, a-h the bright ones.
+const paletteKeys = "12345678abcdefgh"
+
+// pickColor sets the ink or paper color being picked, for new shapes and
+// the selection.
+func (m *Model) pickColor(c doc.Color) {
+	which := m.palette
+	m.palette = ""
+	name := string(c)
+	if name == "" {
+		name = "default"
+	}
+	m.status = which + " " + name
+
+	if which == "ink" {
+		m.ink = c
+	}
+	if which == "paper" {
+		m.paper = c
+	}
+	if len(m.sel) == 0 {
+		return
+	}
+	m.push()
+	for _, i := range m.sel {
+		if which == "ink" {
+			m.shapes[i].Paint(&c, nil, nil)
+			continue
+		}
+		m.shapes[i].Paint(nil, &c, nil)
+	}
+}
+
+func (m *Model) paletteKey(s string) {
+	if s == "0" {
+		m.pickColor("")
+		return
+	}
+	if i := strings.Index(paletteKeys, s); len(s) == 1 && i >= 0 {
+		m.pickColor(doc.Colors[i])
+		return
+	}
+	m.palette = ""
+	m.status = "cancelled"
+}
+
+// toggleFill flips fill on the selection, or the default when none.
+func (m *Model) toggleFill() {
+	if len(m.sel) == 0 {
+		m.fill = !m.fill
+		m.status = fmt.Sprintf("fill %v", m.fill)
+		return
+	}
+	m.push()
+	on := !m.shapes[m.sel[0]].Fill
+	for _, i := range m.sel {
+		m.shapes[i].Paint(nil, nil, &on)
+	}
+	m.status = fmt.Sprintf("fill %v", on)
 }
 
 // setStyle sets the default border style and restyles the selection.
@@ -545,7 +635,7 @@ func (m *Model) paste(text string) {
 	if text == "" {
 		return
 	}
-	m.insert([]doc.Shape{{Kind: doc.Text, Points: []doc.Point{m.cursor}, Text: text}}, 0, 0)
+	m.insert([]doc.Shape{m.dressed(doc.Shape{Kind: doc.Text, Points: []doc.Point{m.cursor}, Text: text})}, 0, 0)
 }
 
 func (m *Model) duplicate() {
@@ -678,12 +768,16 @@ func (m *Model) save(txt bool) tea.Cmd {
 	}
 
 	if txt {
-		out := strings.TrimSuffix(m.path, filepath.Ext(m.path)) + ".txt"
-		if err := export.Save(out, m.shapes); err != nil {
+		base := strings.TrimSuffix(m.path, filepath.Ext(m.path))
+		if err := export.Save(base+".txt", m.shapes); err != nil {
 			m.status = "export failed: " + err.Error()
 			return nil
 		}
-		m.status = "exported " + out
+		if err := export.SaveANSI(base+".ans", m.shapes); err != nil {
+			m.status = "export failed: " + err.Error()
+			return nil
+		}
+		m.status = "exported " + base + ".txt and .ans"
 		return nil
 	}
 

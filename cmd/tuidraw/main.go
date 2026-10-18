@@ -30,6 +30,7 @@ In the editor press ? for every key binding.
 files:
   <name>.tuidraw   project, JSON, written by ctrl+s
   <name>.txt       plain text export, written by ctrl+e
+  <name>.ans       ANSI color export, written by ctrl+e
 
 environment: none read.
 

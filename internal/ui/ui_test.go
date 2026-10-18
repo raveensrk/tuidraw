@@ -220,3 +220,51 @@ func TestPolygonPlacing(t *testing.T) {
 		t.Errorf("lone point added a shape")
 	}
 }
+
+func TestPaletteFillEraser(t *testing.T) {
+	m := setup(t)
+
+	// Defaults: red ink, blue background, filled.
+	press(m, "i", "2", "I", "5", "F")
+	press(m, "r")
+	dragTo(m, 0, 1, 5, 3)
+	s := m.shapes[0]
+	if s.FG != "red" || s.BG != "blue" || !s.Fill {
+		t.Fatalf("new rect not dressed: %+v", s)
+	}
+
+	// Recolor the selection; esc in the palette changes nothing.
+	press(m, "i", "a")
+	if m.shapes[0].FG != "bright_black" {
+		t.Errorf("selection ink %q", m.shapes[0].FG)
+	}
+	press(m, "I", "esc")
+	if m.shapes[0].BG != "blue" || m.palette != "" {
+		t.Error("esc in palette changed the color")
+	}
+
+	// Click a swatch: the third entry is green.
+	press(m, "i")
+	m.Update(tea.MouseClickMsg{X: m.paletteStart() + 2*4 + 2, Y: m.h - 1, Button: tea.MouseLeft})
+	if m.shapes[0].FG != "green" {
+		t.Errorf("clicked swatch gave %q", m.shapes[0].FG)
+	}
+
+	// Eraser: rub out part of a stroke, then the whole rect.
+	press(m, "b")
+	dragTo(m, 10, 1, 15, 1)
+	press(m, "e")
+	dragTo(m, 10, 1, 11, 1)
+	if n := len(m.shapes[1].Points); n != 4 {
+		t.Errorf("stroke has %d cells after erasing 2, want 4", n)
+	}
+	m.Update(tea.MouseClickMsg{X: 0, Y: 1, Button: tea.MouseLeft})
+	m.Update(tea.MouseReleaseMsg{X: 0, Y: 1, Button: tea.MouseLeft})
+	if len(m.shapes) != 1 || m.shapes[0].Kind != doc.Stroke {
+		t.Errorf("eraser left %+v", m.shapes)
+	}
+	press(m, "u")
+	if len(m.shapes) != 2 {
+		t.Errorf("undo after erase gave %d shapes", len(m.shapes))
+	}
+}

@@ -10,7 +10,11 @@
 //	└──┘            └──┴──┘
 //
 // Text, brush strokes and arrowheads are opaque: they replace whatever edge
-// sits below them in z-order.
+// sits below them in z-order. A filled shape wipes every cell it covers
+// before drawing its outline, so it hides what lies below.
+//
+// Colors ride along: each cell keeps the ink of whichever layer shows, and
+// the background of the topmost shape that set one.
 package render
 
 import (
@@ -60,11 +64,14 @@ var arrows = map[uint8][2]rune{
 }
 
 type cell struct {
-	mask   uint8
-	style  doc.Style
-	edgeZ  int  // z of the topmost shape that added an edge
-	solid  rune // opaque rune, 0 if none
-	solidZ int
+	mask    uint8
+	style   doc.Style
+	edgeZ   int // z of the topmost shape that added an edge
+	edgeFG  doc.Color
+	solid   rune // opaque rune, 0 if none
+	solidZ  int
+	solidFG doc.Color
+	bg      doc.Color
 }
 
 // Grid is a rendered window of the infinite canvas.
@@ -72,6 +79,8 @@ type Grid struct {
 	Box   doc.Box
 	cells []cell
 	w     int
+
+	cur doc.Shape // shape being drawn, for its colors
 }
 
 // Draw renders shapes into the window box. Shapes outside are clipped.
@@ -111,6 +120,19 @@ func (g *Grid) Rune(p doc.Point) rune {
 	return table(c.style)[c.mask]
 }
 
+// Cell returns the character at p with its ink and background colors.
+func (g *Grid) Cell(p doc.Point) (rune, doc.Color, doc.Color) {
+	c := g.at(p)
+	if c == nil {
+		return ' ', "", ""
+	}
+	fg := c.edgeFG
+	if c.solid != 0 && c.solidZ >= c.edgeZ {
+		fg = c.solidFG
+	}
+	return g.Rune(p), fg, c.bg
+}
+
 // Lines returns each row of the grid as a string.
 func (g *Grid) Lines() []string {
 	var out []string
@@ -140,6 +162,26 @@ func (g *Grid) edge(p doc.Point, mask uint8, st doc.Style, z int) {
 	c.mask |= mask
 	c.style = st
 	c.edgeZ = z
+	c.edgeFG = g.cur.FG
+	g.paint(c)
+}
+
+// paint gives the cell the current shape's background, when it has one or
+// is filled (a filled shape with no color clears what was below).
+func (g *Grid) paint(c *cell) {
+	if g.cur.BG != "" || g.cur.Fill {
+		c.bg = g.cur.BG
+	}
+}
+
+// wipe empties a cell for a filled shape: nothing below shows through.
+func (g *Grid) wipe(p doc.Point, z int) {
+	c := g.at(p)
+	if c == nil {
+		return
+	}
+	*c = cell{edgeZ: z, solidZ: z}
+	g.paint(c)
 }
 
 func (g *Grid) solid(p doc.Point, r rune, z int) {
@@ -149,6 +191,8 @@ func (g *Grid) solid(p doc.Point, r rune, z int) {
 	}
 	c.solid = r
 	c.solidZ = z
+	c.solidFG = g.cur.FG
+	g.paint(c)
 }
 
 // shape draws s at z and returns the last z used (groups use one per child).
@@ -156,6 +200,13 @@ func (g *Grid) shape(s doc.Shape, z int) int {
 	// Skip shapes fully outside the window, cheap for big canvases.
 	if s.Kind != doc.Group && !s.Bounds().Overlaps(g.Box) {
 		return z
+	}
+
+	if s.Kind != doc.Group {
+		g.cur = s
+		if s.Fill && s.Fillable() {
+			g.fill(s, z)
+		}
 	}
 
 	switch s.Kind {
@@ -273,6 +324,74 @@ func (g *Grid) text(s doc.Shape, z int) {
 			g.solid(doc.Point{X: p.X + dx, Y: p.Y + dy}, r, z)
 		}
 	}
+}
+
+// fill wipes every cell the shape covers, outline included.
+func (g *Grid) fill(s doc.Shape, z int) {
+	b := s.Bounds()
+	for y := max(b.Min.Y, g.Box.Min.Y); y <= min(b.Max.Y, g.Box.Max.Y); y++ {
+		for x := max(b.Min.X, g.Box.Min.X); x <= min(b.Max.X, g.Box.Max.X); x++ {
+			if p := (doc.Point{X: x, Y: y}); Inside(s, p) {
+				g.wipe(p, z)
+			}
+		}
+	}
+	if s.Kind == doc.Ellipse {
+		for _, p := range EllipsePath(s.Box) {
+			g.wipe(p, z)
+		}
+	}
+	if s.Kind == doc.Polygon {
+		n := len(s.Points)
+		for i := range n {
+			for _, p := range Bresenham(s.Points[i], s.Points[(i+1)%n]) {
+				g.wipe(p, z)
+			}
+		}
+	}
+}
+
+// Inside reports whether p is inside a rect, text block, ellipse, closed
+// polygon or any child of a group. Lines and strokes have no inside.
+func Inside(s doc.Shape, p doc.Point) bool {
+	switch s.Kind {
+	case doc.Rect, doc.Text:
+		return s.Bounds().Has(p)
+	case doc.Ellipse:
+		b := s.Box
+		a := max(float64(b.Max.X-b.Min.X)/2, 0.5)
+		r := max(float64(b.Max.Y-b.Min.Y)/2, 0.5)
+		nx := (float64(p.X) - float64(b.Min.X+b.Max.X)/2) / a
+		ny := (float64(p.Y) - float64(b.Min.Y+b.Max.Y)/2) / r
+		return nx*nx+ny*ny <= 1
+	case doc.Polygon:
+		return s.Closed && inPolygon(s.Points, p)
+	case doc.Group:
+		for _, c := range s.Children {
+			if Inside(c, p) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// inPolygon is the even-odd ray test at the cell centre.
+func inPolygon(pts []doc.Point, p doc.Point) bool {
+	in := false
+	x, y := float64(p.X), float64(p.Y)
+	for i, j := 0, len(pts)-1; i < len(pts); j, i = i, i+1 {
+		a, b := pts[i], pts[j]
+		ay, by := float64(a.Y), float64(b.Y)
+		if (ay > y) == (by > y) {
+			continue
+		}
+		cx := float64(a.X) + (y-ay)/(by-ay)*float64(b.X-a.X)
+		if x < cx {
+			in = !in
+		}
+	}
+	return in
 }
 
 // Cells are about twice as tall as wide. Slopes are judged as seen, so a

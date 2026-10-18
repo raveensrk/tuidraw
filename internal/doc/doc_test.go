@@ -1,6 +1,7 @@
 package doc
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -47,5 +48,27 @@ func TestBoundsAndMove(t *testing.T) {
 	}
 	if b := c.Bounds(); b != (Box{Point{2, 1}, Point{9, 4}}) {
 		t.Errorf("moved bounds %v", b)
+	}
+}
+
+func TestOldFileLoads(t *testing.T) {
+	// A v1 file from before colors existed.
+	path := filepath.Join(t.TempDir(), "old.tuidraw")
+	old := `{"version":1,"shapes":[{"kind":"rect","box":{"min":{"x":0,"y":0},"max":{"x":3,"y":2}},"style":"light"}]}`
+	if err := os.WriteFile(path, []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := d.Shapes[0]; s.FG != "" || s.BG != "" || s.Fill {
+		t.Errorf("old shape got colors: %+v", s)
+	}
+}
+
+func TestColorIndex(t *testing.T) {
+	if Color("").Index() != -1 || Color("black").Index() != 0 || Color("bright_white").Index() != 15 {
+		t.Error("color index wrong")
 	}
 }

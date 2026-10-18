@@ -145,3 +145,34 @@ func TestPolygon(t *testing.T) {
 		t.Errorf("polyline join:\n%s\nwant\n%s", got, want)
 	}
 }
+
+func TestFillHidesBelow(t *testing.T) {
+	under := doc.Shape{Kind: doc.Text, Points: []doc.Point{pt(1, 1)}, Text: "hidden"}
+	box := rect(0, 0, 4, 2, doc.Light)
+	box.Fill, box.BG = true, "blue"
+
+	g := Draw([]doc.Shape{under, box}, doc.Box{Min: pt(0, 0), Max: pt(6, 2)})
+	if got := strings.Join(g.Lines(), "\n"); got != "┌───┐  \n│   │en\n└───┘  " {
+		t.Errorf("fill:\n%s", got)
+	}
+	if _, _, bg := g.Cell(pt(2, 1)); bg != "blue" {
+		t.Errorf("inside bg %q, want blue", bg)
+	}
+	if _, _, bg := g.Cell(pt(6, 1)); bg != "" {
+		t.Errorf("outside bg %q, want none", bg)
+	}
+}
+
+func TestColors(t *testing.T) {
+	box := rect(0, 0, 3, 2, doc.Light)
+	box.FG = "red"
+	label := doc.Shape{Kind: doc.Text, Points: []doc.Point{pt(1, 0)}, Text: "x", FG: "green"}
+
+	g := Draw([]doc.Shape{box, label}, doc.Box{Min: pt(0, 0), Max: pt(3, 2)})
+	if _, fg, _ := g.Cell(pt(0, 0)); fg != "red" {
+		t.Errorf("border ink %q", fg)
+	}
+	if r, fg, _ := g.Cell(pt(1, 0)); r != 'x' || fg != "green" {
+		t.Errorf("label %q ink %q", r, fg)
+	}
+}
