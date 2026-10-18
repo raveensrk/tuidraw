@@ -15,6 +15,9 @@ what you draw is exactly what a TUI can show.
 
 ## Purpose
 
+I built this app for my own use: I wanted one and couldn't find a program
+that fit my needs.
+
 Sketch a terminal UI before you build it. General design tools like Figma
 work in pixels, so a mockup never quite matches what a terminal can show.
 ASCII editors like ASCIIFlow, Monodraw or Durdraw either stop at plain boxes
