@@ -106,7 +106,7 @@ func TestEllipse(t *testing.T) {
 	// A flat oval through a box wall joins it, with no stubs.
 	box := rect(0, 0, 10, 4, doc.Light)
 	oval := doc.Shape{Kind: doc.Ellipse, Box: doc.Span(pt(4, 1), pt(16, 3)), Style: doc.Light}
-	want = "┌─────────┐      \n│    ┌────┼────┐ \n│    │    │    │ \n│    └────┼────┘ \n└─────────┘      "
+	want = "┌─────────┐      \n│    ╭────┼────╮ \n│    │    │    │ \n│    ╰────┼────╯ \n└─────────┘      "
 	if got := draw(box, oval); got != want {
 		t.Errorf("oval join:\n%s\nwant\n%s", got, want)
 	}

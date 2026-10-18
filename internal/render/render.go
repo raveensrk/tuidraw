@@ -321,6 +321,10 @@ func slope(dx, dy float64, st doc.Style) rune {
 // It walks the curve in small angle steps, keeps each new cell, and splits
 // diagonal steps through the neighbour nearer the curve.
 func (g *Grid) ellipse(s doc.Shape, z int) {
+	// Light ovals take rounded corners; square ones look like boxes.
+	if s.Style == doc.Light {
+		s.Style = doc.Rounded
+	}
 	path := EllipsePath(s.Box)
 	n := len(path)
 	if n < 2 {
