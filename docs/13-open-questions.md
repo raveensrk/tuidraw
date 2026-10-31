@@ -10,7 +10,7 @@ What the repository cannot answer, and behavior that looks unintended.
 
 ## Known issues
 
-A rebuild should reproduce the exact contracts, but need not reproduce these.
+These are exceptions to [rebuild exactness](01-overview.md#rebuild-exactness): a rebuild may keep or fix each one.
 None has been fixed; each was confirmed by running it except where noted.
 
 | Issue | Behavior | Where it matters |

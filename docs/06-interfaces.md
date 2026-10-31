@@ -111,7 +111,7 @@ Source: [`internal/export/export.go`](../internal/export/export.go).
 
 Both exports render the whole drawing cropped to the union of all top-level shape bounds, and keep blank rows inside that box.
 An empty drawing gives empty files.
-Files are written directly with mode 0644, not atomically.
+Files are written directly with mode 0644, not atomically, overwriting without asking.
 
 ### Text export
 

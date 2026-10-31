@@ -64,7 +64,7 @@ Choosing a tool commits any text edit, finishes any polygon as open, and drops a
 
 | Event | Behavior |
 |---|---|
-| Wheel | Moves the view by the wheel step; shift swaps the axes; cursor unchanged |
+| Wheel | Up and left subtract the wheel step from view y and x, down and right add it; shift swaps the axes; cursor unchanged |
 | Press, palette open, status row | [Picks a swatch](07-ui.md#palette-row) and stops |
 | Press, palette open, elsewhere | Closes the palette and carries on |
 | Press, toolbar row | Picks the tool under the column, if any |
@@ -80,7 +80,8 @@ Motion arrives even with no button held, so the cursor follows the mouse.
 
 ## Keyboard pointer
 
-Arrows move the cursor one cell, scroll the view to keep it visible, update any polygon's loose end, and move any drag.
+Arrows move the cursor one cell, scroll the view by the minimum that keeps it on the canvas, with no margin, update any polygon's loose end, and move any drag.
+The origin key sets the view to (0,0) and the cursor to (trunc(width/2), trunc(canvas rows/2)).
 Enter or space presses the pointer at the cursor when no drag is running, and releases it otherwise.
 A keyboard press counts towards double-click just like a mouse press.
 
@@ -113,7 +114,7 @@ New shapes take the current ink, paper and fill, with fill only where the shape 
 | Draw, line | Until decided, flip is `dy > dx` measured from the start, and it is decided once `dx ≠ dy`; the end follows the pointer |
 | Draw, brush | Append the Bresenham cells from the last point, without repeating it |
 | Move | Push undo on the first move only; shift every selected shape by the pointer's change |
-| Handle | Push undo on the first move only; [resize](#handles) |
+| Handle | Push undo on the first move only, even if the resize is then ignored; [resize](#handles) |
 | Erase | Erase each Bresenham cell from the old cell, excluded, to the new one |
 | Marquee | Only tracks the pointer |
 
@@ -121,8 +122,8 @@ New shapes take the current ink, paper and fill, with fill only where the shape 
 
 | Drag | On release |
 |---|---|
-| Marquee | Add every shape whose bounds overlap the box from start to release |
-| Draw, box tool, no movement | Use a shape built from the start to 11 right and 4 down |
+| Marquee | Add every shape whose bounds overlap the box from start to release; it only adds, whether or not the press toggled |
+| Draw, box tool, released at its start cell, even after moving away | Use a shape built from the start to 11 right and 4 down |
 | Draw, box tool, 1 cell wide or tall | Discard, status "shape needs at least 2x2 cells" |
 | Draw, line released at its start | Discard silently |
 | Draw, otherwise | Push undo, add on top, select only it; the tool stays active |
@@ -169,7 +170,7 @@ Built from the drag start a and pointer b.
 |---|---|
 | Rect | Rect of Span(a, b) |
 | Oval | Ellipse of Span(a, b) |
-| Circle | Ellipse growing from a toward b: `h = max(abs(b.y-a.y)+1, trunc((abs(b.x-a.x)+2)/2))`, `w = 2h-1` |
+| Circle | Ellipse with `h = max(abs(b.y-a.y)+1, trunc((abs(b.x-a.x)+2)/2))`, `w = 2h-1`, of Span(a, (a.x+sx*(w-1), a.y+sy*(h-1))), where sx and sy are -1 when b is left of or above a, else 1 |
 | Triangle | Closed polygon in Span(a, b): (midX, minY), (maxX, maxY), (minX, maxY) |
 | Diamond | Closed polygon in Span(a, b): (midX, minY), (maxX, midY), (midX, maxY), (minX, midY) |
 
@@ -180,7 +181,7 @@ The midpoints use integer division that truncates towards zero.
 | Step | Rule |
 |---|---|
 | First press | Points become [p, p], the second being the loose end following the pointer |
-| Later press at the first point, with at least 3 placed | Finish closed |
+| Later press at the first point, with at least 3 placed, not counting the loose end | Finish closed |
 | Later press, double-click | Finish open |
 | Later press, otherwise | Replace the loose end with p and add a new loose end |
 | Finish | Drop the loose end and consecutive repeats; when closed also a last point equal to the first |
@@ -200,6 +201,7 @@ Editing starts with the caret at the end, the shape selected.
 | Left, right | Move the caret, stopping at the ends |
 | Home or `ctrl+a`, end or `ctrl+e` | Move to the start, end of the current line |
 | Any other key with text | Insert it |
+| Any other key, such as up and down | Nothing |
 
 | Commit case | Result |
 |---|---|
@@ -261,11 +263,12 @@ Bracketed paste converts `\r\n` to `\n`, then takes the first that applies:
 1. In a text edit, insert at the caret.
 2. If it equals the internal clipboard's text export, ignoring trailing newlines, paste the shapes.
 3. Trim trailing newlines; empty text does nothing.
-4. Insert a new text shape at the cursor with the current colors.
+4. Insert, with no offset, a new text shape at the cursor with the current colors.
 
 ## Undo and redo
 
 Both clear the selection and mark the file dirty, or set status "nothing to undo" or "nothing to redo".
+Every undo push also marks the file dirty, and only a successful save clears it.
 Saving neither clears history nor records a clean point.
 
 ## Saving, exporting, quitting
@@ -274,9 +277,10 @@ Saving neither clears history nor records a clean point.
 
 | Action | Behavior |
 |---|---|
-| Name given at the prompt | Append `.tuidraw` unless already there; it becomes the path |
+| No path yet | Prompt `save as: `, prefilled with the default save name |
+| Name given at the prompt | Append `.tuidraw` unless already there; it becomes the path, and the save or export carries on |
 | Save | [Project file save](03-data.md#saving); clear dirty, status "saved path"; on failure status "save failed: error" and stay dirty |
-| Export | Replace the path's extension with `.txt` and `.ans` and write both; dirty unchanged; on failure status "export failed: error" |
+| Export | Remove the file name's last dot and what follows, if any, add `.txt` and `.ans`, and write both; dirty unchanged; on failure status "export failed: error" |
 | `q` | Quits when clean or armed; otherwise arms and warns |
 | `ctrl+q` | Quits at once, discarding changes |
 

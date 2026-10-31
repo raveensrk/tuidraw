@@ -137,6 +137,10 @@ A JSON Schema of what the editor itself writes:
 2. Encode with two-space indentation and a trailing newline, keys in the order of the field table.
 3. Write to `<path>.tmp` with mode 0644, then rename over `<path>`.
 
+An empty drawing saves as `{\n  "version": 1,\n  "shapes": []\n}\n`.
+The current encoder writes each of the characters less-than, greater-than and ampersand as a six-character JSON unicode escape; any encoding that parses to the same JSON is compatible.
+Saving overwrites an existing file without asking.
+
 ### Loading
 
 | Input | Result |

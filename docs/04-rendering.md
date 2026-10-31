@@ -75,7 +75,8 @@ Rows between get N and S at both side columns.
 
 ### Line
 
-The path has two legs: horizontal then vertical, or vertical then horizontal when flipped.
+The path has two legs: horizontal then vertical through corner (b.x, a.y), or vertical then horizontal through (a.x, b.y) when flipped.
+A leg of zero length adds no cells, so a straight line has one leg.
 
 ```text
 a───┐        a

@@ -53,7 +53,7 @@ Exporting a drawing as framework source code is planned future work, tracked in 
 | Must match exactly | May be equivalent |
 |---|---|
 | Project file format | Color values of the editor's own interface |
-| Border, arrow and outline runes | Help page wording and pager internals |
+| Border, arrow and outline runes | Wording of `--help`, `help` and the help page; pager internals |
 | Text and ANSI exports | Internal structure and names |
 | Key bindings | Status message wording |
 
