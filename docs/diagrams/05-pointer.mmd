@@ -1,0 +1,16 @@
+stateDiagram-v2
+    direction LR
+    [*] --> Idle
+    Idle --> Idle: press, polygon, text or toggle
+    Idle --> Dragging: press, by tool
+    Dragging --> Dragging: move
+    Dragging --> Idle: release commits, esc cancels
+    state Dragging {
+        direction TB
+        Draw
+        Erase
+        Marquee
+        Move
+        Handle
+        Pan
+    }

@@ -1,0 +1,18 @@
+flowchart TD
+    A[Next shape in z-order] --> B{Outside window?}
+    B -- yes, not a group --> A
+    B -- no --> C{Filled?}
+    C -- yes --> D[Wipe covered cells]
+    C -- no --> E{Kind}
+    D --> E
+    E -- rect, line, ellipse, straight side --> F[OR edge masks into cells]
+    E -- text, stroke, arrowhead, slanted side --> G[Write solid runes]
+    E -- group --> A
+    F --> H{More shapes?}
+    G --> H
+    H -- yes --> A
+    H -- no --> I{Solid at or above top edge?}
+    I -- yes --> J[Solid rune and its ink]
+    I -- no --> K[Rune table by mask, with edge ink]
+    J --> L[Cell: rune, ink, background]
+    K --> L

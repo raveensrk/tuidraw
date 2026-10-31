@@ -1,0 +1,29 @@
+vars: {
+  d2-config: {
+    layout-engine: tala
+    theme-id: 0
+    pad: 20
+  }
+}
+
+cmd: cmd/tuidraw
+ui: internal/ui
+history: internal/history
+export: internal/export
+render: internal/render
+doc: internal/doc
+fw: Bubble Tea, Lip Gloss, x/ansi {
+  style.fill: "#f3f4f6"
+}
+
+cmd -> ui: starts
+cmd -> fw
+ui -> fw: events, view
+ui -> history
+ui -> export
+ui -> render
+ui -> doc
+export -> render
+export -> doc
+render -> doc
+history -> doc

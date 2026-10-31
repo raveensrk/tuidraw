@@ -1,0 +1,23 @@
+vars: {
+  d2-config: {
+    layout-engine: tala
+    theme-id: 0
+    pad: 20
+  }
+}
+
+designer: Designer {shape: person}
+terminal: Terminal emulator
+tuidraw: tuidraw {
+  style.fill: "#dbeafe"
+}
+project: Project file (.tuidraw) {shape: page}
+exports: Exports (.txt and .ans) {shape: page}
+clipboard: System clipboard
+
+designer -> terminal: keys, mouse, paste
+terminal -> tuidraw: events
+tuidraw -> terminal: screen, OSC 52
+tuidraw <-> project: load, save
+tuidraw -> exports: write
+tuidraw -> clipboard: pbcopy

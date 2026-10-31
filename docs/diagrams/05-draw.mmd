@@ -1,0 +1,22 @@
+sequenceDiagram
+    actor U as User
+    participant E as Editor
+    participant H as History
+    participant R as Render
+    U->>E: press at a
+    E->>E: start draw drag, preview at a
+    E->>R: draw document and preview
+    R-->>U: frame
+    U->>E: move to b
+    E->>E: rebuild preview from a, b
+    E->>R: draw document and preview
+    R-->>U: frame
+    U->>E: release at b
+    alt big enough
+        E->>H: push current shapes
+        E->>E: add on top, select it
+    else one cell wide or tall
+        E->>E: status message, discard
+    end
+    E->>R: draw document
+    R-->>U: frame

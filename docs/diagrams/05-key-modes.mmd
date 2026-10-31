@@ -1,0 +1,14 @@
+flowchart TD
+    K[Key press] --> H{Help open?}
+    H -- yes --> HP[Pager]
+    H -- no --> P{Prompt open?}
+    P -- yes --> PP[Prompt input]
+    P -- no --> T{Editing text?}
+    T -- yes --> TE[Text edit]
+    T -- no --> C{Picking color?}
+    C -- yes --> CP[Palette]
+    C -- no --> B{Brush character armed?}
+    B -- yes --> BP[Set brush]
+    B -- no --> TK{Tool key?}
+    TK -- yes --> ST[Set tool]
+    TK -- no --> CK[Canvas keys]

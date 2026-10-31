@@ -1,0 +1,13 @@
+flowchart LR
+    C[Canvas]
+    C -- "?" --> H[Help pager]
+    H -- "q or esc" --> C
+    C -- "i or I" --> P[Palette row]
+    P -- "key, click or esc" --> C
+    C -- "ctrl+s or ctrl+e, no path" --> S[Save prompt]
+    S -- "enter or esc" --> C
+    C -- "text tool or double-click" --> T[Text edit]
+    T -- "esc" --> C
+    C -- "c" --> B[Brush character]
+    B -- "any key" --> C
+    C -- "q or ctrl+q" --> Q[Exit]

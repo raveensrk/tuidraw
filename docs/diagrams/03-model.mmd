@@ -1,0 +1,26 @@
+erDiagram
+    DOC ||--o{ SHAPE : "shapes, in z-order"
+    SHAPE ||--o{ SHAPE : "children, group only"
+    SHAPE ||--o| BOX : "box, rect and ellipse"
+    SHAPE ||--o{ POINT : "points"
+    BOX ||--|| POINT : "min"
+    BOX ||--|| POINT : "max"
+    DOC {
+        int version
+    }
+    SHAPE {
+        string kind
+        string style
+        bool closed
+        bool flip
+        bool arrow
+        string fg
+        string bg
+        bool fill
+        string text
+        string char
+    }
+    POINT {
+        int x
+        int y
+    }

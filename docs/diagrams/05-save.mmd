@@ -1,0 +1,19 @@
+sequenceDiagram
+    actor U as User
+    participant E as Editor
+    participant F as File system
+    U->>E: ctrl+s or ctrl+e
+    opt no path yet
+        E->>U: prompt "save as", default name
+        U->>E: enter a name
+        E->>E: append .tuidraw if needed, set path
+    end
+    alt ctrl+s
+        E->>F: write path.tmp
+        E->>F: rename over path
+        E->>E: clear dirty
+    else ctrl+e
+        E->>F: write base.txt
+        E->>F: write base.ans
+    end
+    E->>U: status message
