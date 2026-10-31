@@ -1,2 +1,3 @@
 /tuidraw
 *.tmp
+.DS_Store
