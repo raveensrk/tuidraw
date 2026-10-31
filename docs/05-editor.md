@@ -277,7 +277,7 @@ Saving neither clears history nor records a clean point.
 
 | Action | Behavior |
 |---|---|
-| No path yet | Prompt `save as: `, prefilled with the default save name |
+| No path yet | Prompt labeled `save as:` and a space, prefilled with the default save name |
 | Name given at the prompt | Append `.tuidraw` unless already there; it becomes the path, and the save or export carries on |
 | Save | [Project file save](03-data.md#saving); clear dirty, status "saved path"; on failure status "save failed: error" and stay dirty |
 | Export | Remove the file name's last dot and what follows, if any, add `.txt` and `.ans`, and write both; dirty unchanged; on failure status "export failed: error" |
